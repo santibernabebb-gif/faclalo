@@ -14,15 +14,16 @@ const LAYOUT = {
 const OVERLAY = {
   // 1. Zonas de Tapado (Rectángulos Blancos 100% Opacos)
   covers: [
-    { name: "cabecera_total", x: 0, y: 760, w: 595, h: 82 },    // Limpia TODA la franja superior
-    { name: "pie_pagina",     x: 0, y: 0, w: 595, h: 70 },      // Limpia TODO el pie de página
-    { name: "bloque_datos",   x: 40, y: 615, w: 515, h: 55 },   // Limpia zona de Cliente/Fecha original
+    // Ajustado para tapar "PRESUPUESTO" sin tocar el logo a la derecha
+    { name: "cabecera_presupuesto", x: 30, y: 775, w: 380, h: 55 },    
+    { name: "pie_pagina",           x: 0, y: 0, w: 595, h: 70 },       // Limpia TODO el pie de página
+    { name: "bloque_datos",         x: 40, y: 615, w: 515, h: 55 },    // Limpia zona de Cliente/Fecha original
   ],
   // 2. Posiciones de Texto Final
   texts: {
-    titulo: { y: 790, size: 36, label: "FACTURA" },             // Centrado horizontalmente
-    sub_datos: { y: 635, size: 11 },                            // Cliente y Fecha en una línea
-    num_lateral: { x: 48, y: 550, size: 13, rotateDeg: 90 }     // Código de factura lateral
+    titulo: { y: 788, size: 34, label: "FACTURA" },              // Centrado horizontalmente
+    sub_datos: { y: 635, size: 11 },                             // Cliente y Fecha en una línea
+    num_lateral: { x: 48, y: 550, size: 13, rotateDeg: 90 }      // Código de factura lateral
   }
 };
 
@@ -74,7 +75,7 @@ export async function generatePdf(
 
     // --- PASO 2: DIBUJAR TODOS LOS TEXTOS NUEVOS ---
     
-    // A. Título "FACTURA" (Calculamos centro exacto)
+    // A. Título "FACTURA" (Calculamos centro exacto sobre el ancho de la página)
     const titleText = OVERLAY.texts.titulo.label;
     const titleSize = OVERLAY.texts.titulo.size;
     const titleWidth = fontBold.widthOfTextAtSize(titleText, titleSize);
