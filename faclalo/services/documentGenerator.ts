@@ -11,13 +11,19 @@ const LAYOUT = {
   blueColor: { r: 0.27, g: 0.45, b: 0.72 } // Azul corporativo
 };
 
+// Límite de seguridad para no invadir el logo "QUILIS" que está a la derecha
+const LOGO_LEFT_X = 418;
+
 const OVERLAY = {
   // 1. Zonas de Tapado (Rectángulos Blancos 100% Opacos)
   covers: [
-    // Ajustado para tapar "PRESUPUESTO" sin tocar el logo a la derecha
-    { name: "cabecera_presupuesto", x: 30, y: 775, w: 380, h: 55 },    
-    { name: "pie_pagina",           x: 0, y: 0, w: 595, h: 70 },       // Limpia TODO el pie de página
-    { name: "bloque_datos",         x: 40, y: 615, w: 515, h: 55 },    // Limpia zona de Cliente/Fecha original
+    // TAPADOS QUIRÚRGICOS PARA EL HEADER
+    { name: "cover_top_left",        x: 30,  y: 775, w: 285, h: 55 }, // Tapa la parte izquierda y central de "PRESUPUESTO"
+    { name: "cover_top_right_small", x: 345, y: 775, w: 70,  h: 55 }, // Tapa el resto azul a la derecha del título sin tocar el logo
+    
+    // OTRAS ZONAS
+    { name: "pie_pagina",           x: 0,   y: 0,   w: 595, h: 70 }, // Limpia TODO el pie de página
+    { name: "bloque_datos",         x: 40,  y: 615, w: 515, h: 55 }, // Limpia zona de Cliente/Fecha original
   ],
   // 2. Posiciones de Texto Final
   texts: {
@@ -56,26 +62,39 @@ export async function generatePdf(
 
     // --- PASO 1: DIBUJAR TODOS LOS TAPADOS (RECTÁNGULOS BLANCOS) ---
     OVERLAY.covers.forEach(area => {
+      // Guardrail: Asegurar que ningún tapado del header invade el área del logo
+      let finalWidth = area.w;
+      if (area.x + area.w > LOGO_LEFT_X && (area.name.includes("top") || area.name.includes("cabecera"))) {
+         finalWidth = Math.max(0, LOGO_LEFT_X - area.x);
+      }
+
       firstPage.drawRectangle({
         x: area.x,
         y: area.y,
-        width: area.w,
+        width: finalWidth,
         height: area.h,
         color: rgb(1, 1, 1),
         opacity: 1
       });
 
       if (DEBUG_GUIDES) {
+        // Guía del tapado real (Rojo)
         firstPage.drawRectangle({
-          x: area.x, y: area.y, width: area.w, height: area.h,
+          x: area.x, y: area.y, width: finalWidth, height: area.h,
           borderColor: rgb(1, 0, 0), borderWidth: 1
+        });
+        
+        // Guía del límite del logo (Verde)
+        firstPage.drawRectangle({
+          x: LOGO_LEFT_X, y: 750, width: LAYOUT.width - LOGO_LEFT_X, height: 100,
+          borderColor: rgb(0, 0.8, 0), borderWidth: 1.5
         });
       }
     });
 
     // --- PASO 2: DIBUJAR TODOS LOS TEXTOS NUEVOS ---
     
-    // A. Título "FACTURA" (Calculamos centro exacto sobre el ancho de la página)
+    // A. Título "FACTURA" (Centrado sobre el ancho de la página)
     const titleText = OVERLAY.texts.titulo.label;
     const titleSize = OVERLAY.texts.titulo.size;
     const titleWidth = fontBold.widthOfTextAtSize(titleText, titleSize);
