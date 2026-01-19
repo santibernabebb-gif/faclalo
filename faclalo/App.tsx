@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ChevronLeft, 
   Loader2, 
@@ -13,12 +13,16 @@ import {
   Plus, 
   Mail, 
   MessageSquare, 
-  MoreHorizontal 
+  MoreHorizontal,
+  FileCheck,
+  XCircle,
+  Settings
 } from 'lucide-react';
 import { FileUploader } from './components/FileUploader';
 import { BudgetList } from './components/BudgetList';
 import { BudgetData, MONTHS_ABREV_ES } from './types';
 import { generatePdf } from './services/documentGenerator';
+import { templateStore, StoredTemplate } from './services/templateStore';
 
 enum Step {
   UPLOAD,
@@ -32,10 +36,16 @@ const App: React.FC = () => {
   const [selectedBudget, setSelectedBudget] = useState<BudgetData | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [storedTemplate, setStoredTemplate] = useState<StoredTemplate | null>(null);
   const [invoiceConfig, setInvoiceConfig] = useState({
     number: "1",
     date: new Date().toISOString().split('T')[0]
   });
+
+  // Cargar plantilla de IndexedDB al inicio
+  useEffect(() => {
+    templateStore.getTemplate().then(setStoredTemplate);
+  }, []);
 
   const handleBudgetsDetected = (newBudgets: BudgetData[]) => {
     setBudgets(prev => [...newBudgets, ...prev]);
@@ -49,7 +59,8 @@ const App: React.FC = () => {
       const dateObj = new Date(invoiceConfig.date);
       const monthIndex = dateObj.getMonth();
       const monthAbrev = MONTHS_ABREV_ES[monthIndex];
-      return `FACTURA ${invoiceConfig.number} ${monthAbrev}-26`;
+      const year = dateObj.getFullYear().toString().slice(-2);
+      return `FACTURA ${invoiceConfig.number} ${monthAbrev}-${year}`;
     } catch (e) {
       return `FACTURA ${invoiceConfig.number} ???-26`;
     }
@@ -80,10 +91,29 @@ const App: React.FC = () => {
   const handleDownload = async () => {
     if (!selectedBudget) return;
     const fullCode = getFullInvoiceCode();
-    await generatePdf(selectedBudget, { 
-      number: invoiceConfig.number, 
-      date: invoiceConfig.date 
-    }, fullCode);
+    await generatePdf(
+      selectedBudget, 
+      { number: invoiceConfig.number, date: invoiceConfig.date }, 
+      fullCode,
+      storedTemplate?.data
+    );
+  };
+
+  const handleTemplateUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && file.type === 'application/pdf') {
+      try {
+        const saved = await templateStore.saveTemplate(file);
+        setStoredTemplate(saved);
+      } catch (err) {
+        setError("Error al guardar la plantilla.");
+      }
+    }
+  };
+
+  const removeTemplate = async () => {
+    await templateStore.clearTemplate();
+    setStoredTemplate(null);
   };
 
   const updateSelectedBudget = (updates: Partial<BudgetData>) => {
@@ -123,6 +153,7 @@ const App: React.FC = () => {
             <div className="mb-4 bg-red-50 border border-red-100 text-red-700 p-3 rounded-2xl flex items-center gap-2 text-xs font-bold">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
               <span>{error}</span>
+              <button onClick={() => setError(null)} className="ml-auto text-red-400 hover:text-red-600"><XCircle className="w-4 h-4" /></button>
             </div>
           )}
 
@@ -191,9 +222,43 @@ const App: React.FC = () => {
                  </div>
               </div>
 
+              {/* Panel de Plantilla */}
+              <div className="bg-slate-50 p-5 rounded-[28px] border border-slate-100">
+                 <div className="flex items-center gap-2 mb-3">
+                    <Settings className="w-4 h-4 text-slate-400" />
+                    <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Ajustes de Plantilla PDF</h3>
+                 </div>
+                 
+                 {storedTemplate ? (
+                   <div className="flex items-center justify-between p-3 bg-blue-50/50 rounded-2xl border border-blue-100">
+                      <div className="flex items-center gap-3">
+                        <FileCheck className="w-5 h-5 text-blue-600" />
+                        <div>
+                          <p className="text-[10px] font-black text-blue-600 uppercase tracking-tight">Plantilla Cargada</p>
+                          <p className="text-[12px] font-bold text-slate-700 truncate max-w-[150px]">{storedTemplate.name}</p>
+                        </div>
+                      </div>
+                      <button onClick={removeTemplate} className="p-2 text-slate-300 hover:text-red-500 transition-colors">
+                        <XCircle className="w-5 h-5" />
+                      </button>
+                   </div>
+                 ) : (
+                   <label className="flex items-center justify-center p-4 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer hover:bg-white hover:border-blue-300 transition-all group">
+                      <div className="text-center">
+                        <Plus className="w-5 h-5 text-slate-300 mx-auto group-hover:text-blue-500" />
+                        <p className="text-[10px] font-black text-slate-400 mt-1 uppercase tracking-widest">Subir Plantilla Base PDF</p>
+                      </div>
+                      <input type="file" accept="application/pdf" className="hidden" onChange={handleTemplateUpload} />
+                   </label>
+                 )}
+                 <p className="text-[9px] text-slate-400 mt-2 ml-1 leading-tight italic">
+                   Prioridad: (1) Archivo subido, (2) /public/Plantilla_Factura_BASE.pdf, (3) Diseño base simple.
+                 </p>
+              </div>
+
               <div className="space-y-3">
                  <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Líneas de la Tabla</h3>
-                 <div className="max-h-[200px] overflow-y-auto space-y-2 pr-1">
+                 <div className="max-h-[160px] overflow-y-auto space-y-2 pr-1">
                     {selectedBudget.lines.map((line, idx) => (
                       <div key={idx} className="p-3 bg-white border border-slate-100 rounded-xl flex justify-between items-center text-xs">
                         <span className="font-bold text-slate-700 truncate max-w-[150px]">{line.description}</span>
