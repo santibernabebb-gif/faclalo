@@ -92,7 +92,7 @@ export async function generatePdf(
   const DEBUG_CROP = false;
   if (budget.footerMarkerY !== undefined) {
     // Revertido a un margen más conservador para evitar desbordar el alto de página
-    const EXTRA_BOTTOM_MARGIN = 10; 
+    const EXTRA_BOTTOM_MARGIN = 65; 
     const yImportantePdfLib = budget.footerMarkerY;
     const yCut = yImportantePdfLib + EXTRA_BOTTOM_MARGIN;
     
