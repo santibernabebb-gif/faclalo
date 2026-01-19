@@ -13,7 +13,7 @@ const LAYOUT = {
 
 // LÍMITES ESTRICTOS (Guardrails)
 const LIMITS = {
-  LOGO_LEFT_X: 585,    // Aumentado para permitir el tapado de restos a la derecha del título
+  LOGO_LEFT_X: 595,    // Ajustado a 595 para permitir el tapado total solicitado del título original
   Y_NAME_LIMIT: 780    // Límite inferior para no cortar "Eduardo Quilis Llorens"
 };
 
@@ -21,14 +21,14 @@ const OVERLAY = {
   // 1. Zonas de Tapado (Rectángulos Blancos 100% Opacos)
   // Se dibujan ANTES que cualquier texto nuevo
   covers: [
-    // CABECERA: Tapado ensanchado significativamente hacia la derecha para cubrir restos de "PRESUPUESTO"
-    { name: "top_header_cleaner", x: 10, y: 790, w: 575, h: 52 }, 
+    // CABECERA: Tapado total del ancho superior (x:0, w:595) para limpiar restos a la derecha de "FACTURA"
+    { name: "top_header_cleaner", x: 0, y: 790, w: 595, h: 52 }, 
     
     // CUERPO: Tapado zona Cliente/Fecha original
     { name: "info_wipe",  x: 40,  y: 615, w: 515, h: 50 },  
     
-    // PIE: Limpieza inferior bajada drásticamente (altura mínima para que quede en el borde inferior)
-    { name: "footer_wipe", x: 0,   y: 0,   w: 595, h: 10 }, 
+    // PIE: Limpieza inferior aumentada (h: 60) para tapar la palabra "PRESUPUESTO" del footer original
+    { name: "footer_wipe", x: 0,   y: 0,   w: 595, h: 60 }, 
   ],
   
   // 2. Posiciones de Texto Final
