@@ -5,8 +5,38 @@ interface PDFTextItem {
   str: string;
   x: number;
   y: number;
-  width: number;
-  height: number;
+}
+
+/**
+ * Normaliza números en formato español (3.825,00€ o 3825.00) a Number (3825.00)
+ */
+function cleanNumber(str: string): number | null {
+  if (!str) return null;
+  // Eliminar símbolo de euro y espacios
+  let clean = str.replace(/[€\s]/g, '');
+  
+  // Detectar si usa coma como decimal
+  const hasComma = clean.includes(',');
+  const hasDot = clean.includes('.');
+
+  if (hasComma && hasDot) {
+    // Formato 1.234,56 -> quitar puntos, cambiar coma por punto
+    clean = clean.replace(/\./g, '').replace(',', '.');
+  } else if (hasComma) {
+    // Formato 1234,56 -> cambiar coma por punto
+    clean = clean.replace(',', '.');
+  } else if (hasDot) {
+    // Podría ser 1.234 (mil) o 1234.56 (decimal). 
+    // Heurística: si hay exactamente 3 dígitos tras el punto, es separador de miles si no hay más puntos
+    const parts = clean.split('.');
+    if (parts.length === 2 && parts[1].length === 3) {
+      // Es muy probable que sea miles (ej: 3.825)
+      clean = clean.replace(/\./g, '');
+    }
+  }
+
+  const num = parseFloat(clean);
+  return isNaN(num) ? null : num;
 }
 
 export async function parseBudgetPdf(file: File): Promise<BudgetData> {
@@ -14,127 +44,155 @@ export async function parseBudgetPdf(file: File): Promise<BudgetData> {
   // @ts-ignore
   const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   
-  let allItems: PDFTextItem[] = [];
-  
-  // Solo procesamos la primera página para el presupuesto base
   const page = await pdf.getPage(1);
   const textContent = await page.getTextContent();
   
-  allItems = textContent.items.map((item: any) => ({
+  const allItems: PDFTextItem[] = textContent.items.map((item: any) => ({
     str: item.str,
     x: item.transform[4],
-    y: item.transform[5],
-    width: item.width,
-    height: item.height
+    y: item.transform[5]
   }));
 
-  // Agrupar por líneas (Y con tolerancia)
-  const lines: PDFTextItem[][] = [];
-  const tolerance = 3;
-  
-  allItems.sort((a, b) => b.y - a.y); // De arriba a abajo
-  
+  // 1. Reconstruir líneas por coordenada Y (tolerancia de 4px)
+  const linesMap: { [key: number]: PDFTextItem[] } = {};
+  const tolerance = 4;
+
   allItems.forEach(item => {
-    let line = lines.find(l => Math.abs(l[0].y - item.y) < tolerance);
-    if (line) {
-      line.push(item);
+    const foundY = Object.keys(linesMap).find(y => Math.abs(Number(y) - item.y) < tolerance);
+    if (foundY) {
+      linesMap[Number(foundY)].push(item);
     } else {
-      lines.push([item]);
+      linesMap[item.y] = [item];
     }
   });
-  
-  // Ordenar cada línea por X
-  lines.forEach(l => l.sort((a, b) => a.x - b.x));
 
-  // Extracción de datos específicos
-  let clientName = "NO DETECTADO";
-  let budgetDate = new Date().toLocaleDateString('es-ES');
-  let tableLines: InvoiceLine[] = [];
-  let detectedSubtotal = 0;
-  let detectedIva = 0;
-  let detectedTotal = 0;
+  // Ordenar líneas de arriba a abajo y elementos de izquierda a derecha
+  const sortedY = Object.keys(linesMap).map(Number).sort((a, b) => b - a);
+  const textLines = sortedY.map(y => {
+    return linesMap[y]
+      .sort((a, b) => a.x - b.x)
+      .map(item => item.str)
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  });
 
-  lines.forEach(lineItems => {
-    const lineText = lineItems.map(i => i.str).join(" ");
+  // 2. Extracción de Totales mediante Regex
+  let detectedSubtotal: number | null = null;
+  let detectedIva: number | null = null;
+  let detectedTotal: number | null = null;
+  const warnings: string[] = [];
+
+  textLines.forEach(line => {
+    const upperLine = line.toUpperCase();
     
-    // 1. Buscar Cliente
-    if (lineText.includes("Cliente:") || lineText.includes("CLIENTE:")) {
-      const parts = lineText.split(/Cliente:|CLIENTE:/i);
-      if (parts[1]) clientName = parts[1].trim();
+    // Subtotal: "TOTAL € 3825€"
+    if (upperLine.includes('TOTAL €')) {
+      const match = line.match(/TOTAL\s*€\s*([\d.,]+\s*€?)/i);
+      if (match) detectedSubtotal = cleanNumber(match[1]);
     }
     
-    // 2. Buscar Fecha
-    const dateMatch = lineText.match(/(\d{2}\/\d{2}\/\d{4})/);
-    if (dateMatch && (lineText.includes("Fecha") || lineText.includes("FECHA"))) {
-      budgetDate = dateMatch[1];
+    // IVA: "IVA 21% 803.25€"
+    if (upperLine.includes('IVA 21%')) {
+      const match = line.match(/IVA\s*21%\s*([\d.,]+\s*€?)/i);
+      if (match) detectedIva = cleanNumber(match[1]);
     }
+  });
 
-    // 3. Detectar Líneas de Tabla (Heurística por coordenadas X)
-    // Suponemos que la tabla tiene Description (izquierda), Units, Price, Total
-    // Basado en el layout típico del presupuesto ejemplo:
-    // Cantidad suele estar en x ~ 120-150
-    // Precio Unitario en x ~ 160-180
-    // Importe en x ~ 190+
-    
-    // Detectamos si la línea parece una fila de producto (tiene números al final)
-    const lastItem = lineItems[lineItems.length - 1];
-    const secondLast = lineItems[lineItems.length - 2];
-    
-    if (lineItems.length >= 3) {
-      const priceMatch = lastItem.str.match(/(\d+[.,]\d{2})/);
-      if (priceMatch && lastItem.x > 180) {
-        // Es probable que sea una línea de tabla
-        const total = parseFloat(priceMatch[1].replace(',', '.'));
-        const units = parseFloat(lineItems[lineItems.length - 3]?.str.replace(',', '.')) || 1;
-        const priceUnit = parseFloat(lineItems[lineItems.length - 2]?.str.replace(',', '.')) || total / units;
-        
-        // La descripción es todo lo anterior
-        const desc = lineItems.slice(0, lineItems.length - 3).map(i => i.str).join(" ").trim();
-        
-        if (desc && !isNaN(total) && !lineText.includes("TOTAL")) {
-          tableLines.push({
-            description: desc,
-            units,
-            priceUnit,
-            total
-          });
-        }
+  // El Total Final suele ser el último "TOTAL" que aparece
+  for (let i = textLines.length - 1; i >= 0; i--) {
+    const line = textLines[i];
+    if (line.toUpperCase().startsWith('TOTAL') && !line.toUpperCase().includes('TOTAL €')) {
+      const match = line.match(/TOTAL\s*([\d.,]+\s*€?)/i);
+      if (match) {
+        detectedTotal = cleanNumber(match[1]);
+        break;
       }
     }
+  }
 
-    // 4. Totales
-    if (lineText.includes("SUBTOTAL")) {
-       const match = lineText.match(/(\d+[.,]\d{2})/);
-       if (match) detectedSubtotal = parseFloat(match[1].replace(',', '.'));
-    }
-    if (lineText.includes("IVA 21%")) {
-       const match = lineText.match(/(\d+[.,]\d{2})/);
-       if (match) detectedIva = parseFloat(match[1].replace(',', '.'));
-    }
-    if (lineText.includes("TOTAL") && !lineText.includes("IVA") && !lineText.includes("SUBTOTAL")) {
-       const match = lineText.match(/(\d+[.,]\d{2})/);
-       if (match) detectedTotal = parseFloat(match[1].replace(',', '.'));
+  // 3. Extracción de Líneas Facturables
+  const tableLines: InvoiceLine[] = [];
+  const amountRegex = /[\d.,]+\s*€/g;
+
+  textLines.forEach(line => {
+    const upperLine = line.toUpperCase();
+    
+    // Saltamos encabezados y líneas de totales
+    if (upperLine.includes('TOTAL') || 
+        upperLine.includes('IVA 21%') || 
+        upperLine.includes('DESCRIPCIÓN') ||
+        upperLine.includes('PRESUPUESTO') ||
+        upperLine.includes('CLIENTE') ||
+        line.length < 5) return;
+
+    const matches = line.match(amountRegex);
+    
+    // Una línea válida tiene al menos 2 importes con € (Precio Unitario y Total)
+    if (matches && matches.length >= 2) {
+      const totalStr = matches[matches.length - 1];
+      const unitPriceStr = matches[matches.length - 2];
+      
+      const total = cleanNumber(totalStr);
+      const priceUnit = cleanNumber(unitPriceStr);
+      
+      if (total !== null && priceUnit !== null) {
+        // Buscamos las unidades (el número que esté antes de los importes)
+        const beforeAmounts = line.split(unitPriceStr)[0].trim();
+        const words = beforeAmounts.split(' ');
+        let units = 1;
+        let description = beforeAmounts;
+
+        // Intentamos detectar el número de unidades al final del texto restante
+        const lastWord = words[words.length - 1];
+        const possibleUnits = parseFloat(lastWord.replace(',', '.'));
+        if (!isNaN(possibleUnits) && possibleUnits > 0 && possibleUnits < 1000) {
+          units = possibleUnits;
+          description = words.slice(0, -1).join(' ');
+        }
+
+        tableLines.push({
+          description: description.replace(/^[-•]\s*/, '').trim(),
+          units,
+          priceUnit,
+          total
+        });
+      }
     }
   });
 
-  // Si no se detectaron líneas pero sí totales, creamos una línea genérica o dejamos vacío
-  const subtotal = tableLines.reduce((acc, l) => acc + l.total, 0) || detectedSubtotal;
-  const iva = subtotal * 0.21;
-  const total = subtotal + iva;
+  // 4. Validación Cruzada y Fallbacks
+  if (tableLines.length === 0) warnings.push("No se detectaron líneas de detalle en la tabla.");
+  
+  const sumLines = tableLines.reduce((acc, l) => acc + l.total, 0);
+  
+  if (detectedSubtotal === null) {
+    detectedSubtotal = sumLines;
+  } else if (Math.abs(detectedSubtotal - sumLines) > 0.1) {
+    warnings.push("El subtotal detectado no coincide con la suma de las líneas.");
+  }
+
+  if (detectedIva === null && detectedSubtotal !== null) {
+    detectedIva = Math.round(detectedSubtotal * 21) / 100;
+  }
+
+  if (detectedTotal === null && detectedSubtotal !== null && detectedIva !== null) {
+    detectedTotal = detectedSubtotal + detectedIva;
+  }
 
   return {
     id: Math.random().toString(36).substr(2, 9),
     fileName: file.name,
-    clientName,
-    date: budgetDate,
+    clientName: "Detectado en Formulario", // No se pide extraer
+    date: new Date().toLocaleDateString('es-ES'), // No se pide extraer
     lines: tableLines,
-    subtotal: subtotal,
-    iva: iva,
-    total: total,
+    subtotal: detectedSubtotal || 0,
+    iva: detectedIva || 0,
+    total: detectedTotal || 0,
     detectedTotals: {
-      subtotal: detectedSubtotal,
-      iva: detectedIva,
-      total: detectedTotal
+      subtotal: detectedSubtotal || 0,
+      iva: detectedIva || 0,
+      total: detectedTotal || 0
     }
   };
 }
