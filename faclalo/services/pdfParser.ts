@@ -22,9 +22,15 @@ function cleanNumber(str: string): number | null {
 }
 
 export async function parseBudgetPdf(file: File): Promise<BudgetData> {
+  // Obtenemos el buffer original del archivo
   const arrayBuffer = await file.arrayBuffer();
+  
+  // CLONAMOS el buffer para PDF.js para que no neutralice el original
+  // Esto es CRÍTICO para que originalBuffer siga teniendo datos después
+  const bufferForPdfJs = arrayBuffer.slice(0);
+  
   // @ts-ignore
-  const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const pdf = await window.pdfjsLib.getDocument({ data: bufferForPdfJs }).promise;
   const page = await pdf.getPage(1);
   const textContent = await page.getTextContent();
   
@@ -35,15 +41,20 @@ export async function parseBudgetPdf(file: File): Promise<BudgetData> {
     width: item.width
   }));
 
-  // Extracción mínima solo para que la UI tenga algo que mostrar
   const textLines = allItems.map(i => i.str).join(' ');
-  let detectedClient = "Cliente Detectado";
+  let detectedClient = "CLIENTE DETECTADO";
   
-  // Si encontramos "Cliente:" intentamos pillar lo siguiente
-  const clientIdx = textLines.indexOf("Cliente:");
-  if (clientIdx !== -1) {
-    const afterClient = textLines.substring(clientIdx + 8, clientIdx + 50).trim();
-    if (afterClient) detectedClient = afterClient.split('\n')[0];
+  // Intento de captura de nombre tras etiquetas comunes
+  const lowerText = textLines.toLowerCase();
+  const markers = ["cliente:", "señor/a:", "atn:"];
+  
+  for (const marker of markers) {
+    const idx = lowerText.indexOf(marker);
+    if (idx !== -1) {
+      const start = idx + marker.length;
+      detectedClient = textLines.substring(start, start + 30).trim().split('\n')[0];
+      break;
+    }
   }
 
   return {
@@ -51,10 +62,10 @@ export async function parseBudgetPdf(file: File): Promise<BudgetData> {
     fileName: file.name,
     clientName: detectedClient,
     date: new Date().toLocaleDateString('es-ES'),
-    lines: [], // No necesitamos las líneas para el modo overlay
+    lines: [],
     subtotal: 0,
     iva: 0,
     total: 0,
-    originalBuffer: arrayBuffer // IMPORTANTE: Guardamos el PDF original
+    originalBuffer: arrayBuffer // El buffer original ahora llega íntegro
   };
 }
