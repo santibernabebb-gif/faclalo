@@ -50,7 +50,7 @@ const App: React.FC = () => {
     }
   };
 
-  const getFullInvoiceCode = () => `FACT-2026-${invoiceConfig.number.padStart(4, '0')}`;
+  const getFullInvoiceCode = () => `Factura-2026-${invoiceConfig.number.padStart(4, '0')}`;
 
   const handleDownload = async () => {
     if (!selectedBudget) return;
@@ -89,7 +89,6 @@ const App: React.FC = () => {
           {currentStep === Step.PREVIEW && (
             <button onClick={() => setCurrentStep(Step.UPLOAD)} className="text-blue-600 font-black text-sm pr-2">HECHO</button>
           )}
-          {/* Perfil eliminado según instrucción */}
         </div>
 
         {/* Content Area */}
@@ -121,15 +120,14 @@ const App: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nº Inicial</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Número de Factura</label>
                   <div className="relative flex items-center mt-1.5">
-                    <span className="absolute left-4 text-[13px] font-black text-slate-300 pointer-events-none">FACT-2026-</span>
                     <input 
                       type="text" 
                       value={invoiceConfig.number}
                       onChange={(e) => setInvoiceConfig({...invoiceConfig, number: e.target.value.replace(/\D/g, '')})}
-                      className="w-full p-4 pl-[88px] bg-white border border-slate-100 rounded-2xl text-[13px] font-bold outline-none focus:border-blue-400 shadow-sm"
-                      placeholder="0001"
+                      className="w-full p-4 bg-white border border-slate-100 rounded-2xl text-[13px] font-bold outline-none focus:border-blue-400 shadow-sm"
+                      placeholder="Ej: 1"
                     />
                   </div>
                 </div>
@@ -171,12 +169,12 @@ const App: React.FC = () => {
                 <div>
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Número de Factura</label>
                   <div className="relative flex items-center mt-1.5">
-                    <span className="absolute left-4 text-[15px] font-black text-slate-300 pointer-events-none">FACT-2026-</span>
                     <input 
                       type="text" 
                       value={invoiceConfig.number}
                       onChange={(e) => setInvoiceConfig({...invoiceConfig, number: e.target.value.replace(/\D/g, '')})}
-                      className="w-full p-4 pl-[98px] bg-white border border-slate-100 rounded-2xl text-[15px] outline-none focus:border-blue-400 font-bold shadow-sm"
+                      className="w-full p-4 bg-white border border-slate-100 rounded-2xl text-[15px] outline-none focus:border-blue-400 font-bold shadow-sm"
+                      placeholder="Ej: 1"
                     />
                   </div>
                 </div>
@@ -215,29 +213,67 @@ const App: React.FC = () => {
                 <p className="text-slate-400 text-[14px] mt-2 leading-relaxed font-medium">Tu presupuesto PDF ha sido convertido en una factura profesional.</p>
               </div>
 
-              <div className="aspect-[3/4] bg-slate-100 rounded-[40px] shadow-inner relative flex items-center justify-center p-8 overflow-hidden group">
-                 <div className="w-full h-full bg-white rounded-xl shadow-2xl flex flex-col p-5 gap-3 border border-slate-200 group-hover:scale-[1.02] transition-transform duration-700">
-                    <div className="w-full h-5 bg-blue-500 rounded-[4px]"></div>
-                    <div className="flex justify-between items-start mt-4">
-                      <div className="space-y-2">
-                        <div className="w-24 h-2.5 bg-slate-100 rounded-full"></div>
-                        <div className="w-20 h-2 bg-slate-50 rounded-full"></div>
+              {/* Dynamic Preview Box */}
+              <div className="aspect-[3/4] bg-slate-100 rounded-[40px] shadow-inner relative flex items-center justify-center p-6 overflow-hidden group">
+                 <div className="w-full h-full bg-white rounded-xl shadow-2xl flex flex-col p-6 border border-slate-200 group-hover:scale-[1.02] transition-transform duration-700">
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-1">
+                        <div className="w-16 h-3 bg-blue-500 rounded-full mb-2"></div>
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Emisor</p>
+                        <p className="text-[9px] font-bold text-slate-800 uppercase tracking-tighter">Eduardo Quilis Llorens</p>
                       </div>
-                      <div className="w-14 h-14 bg-slate-900 rounded-lg flex items-center justify-center">
-                        <div className="w-8 h-8 bg-blue-500/20 rounded-md"></div>
+                      <div className="text-right">
+                        <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Nº {getFullInvoiceCode()}</p>
+                        <p className="text-[8px] text-slate-400 font-bold mt-1">{new Date(invoiceConfig.date).toLocaleDateString()}</p>
                       </div>
                     </div>
-                    <div className="mt-10 space-y-3">
-                      <div className="w-full h-2.5 bg-slate-50 rounded-full"></div>
-                      <div className="w-full h-2.5 bg-slate-50 rounded-full"></div>
-                      <div className="w-3/4 h-2.5 bg-slate-50 rounded-full"></div>
+
+                    <div className="mt-8">
+                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Facturar a</p>
+                       <p className="text-[11px] font-black text-slate-900 leading-tight uppercase tracking-tight">{selectedBudget.clientName}</p>
                     </div>
-                    <div className="mt-auto flex justify-end">
-                      <div className="w-28 h-8 bg-slate-100 rounded-lg border border-slate-200"></div>
+
+                    <div className="mt-8 flex-1 overflow-hidden">
+                       <table className="w-full border-collapse">
+                          <thead>
+                            <tr className="border-b border-slate-100 text-[8px] font-black text-slate-400 uppercase text-left">
+                               <th className="pb-1.5">Descripción</th>
+                               <th className="pb-1.5 text-right">Cant.</th>
+                               <th className="pb-1.5 text-right">Total</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-50">
+                            {selectedBudget.lines.slice(0, 8).map((line, i) => (
+                              <tr key={i}>
+                                <td className="py-2 text-[9px] font-medium text-slate-700 truncate max-w-[120px] leading-tight">{line.description}</td>
+                                <td className="py-2 text-[9px] text-right text-slate-500">{line.units}</td>
+                                <td className="py-2 text-[9px] text-right font-bold text-slate-900">{line.total.toFixed(2)}€</td>
+                              </tr>
+                            ))}
+                            {selectedBudget.lines.length > 8 && (
+                               <tr><td colSpan={3} className="py-1 text-[8px] text-center text-slate-300">... y {selectedBudget.lines.length - 8} ítems más</td></tr>
+                            )}
+                          </tbody>
+                       </table>
+                    </div>
+
+                    <div className="mt-6 pt-4 border-t border-slate-100 space-y-1.5">
+                       <div className="flex justify-between items-center text-[9px] text-slate-500 font-bold">
+                          <span>SUBTOTAL</span>
+                          <span>{selectedBudget.subtotal.toFixed(2)}€</span>
+                       </div>
+                       <div className="flex justify-between items-center text-[9px] text-slate-500 font-bold">
+                          <span>IVA 21%</span>
+                          <span>{selectedBudget.iva.toFixed(2)}€</span>
+                       </div>
+                       <div className="flex justify-between items-center pt-2 text-[11px] font-black text-slate-900 border-t border-slate-50 uppercase">
+                          <span>TOTAL</span>
+                          <span className="text-blue-600">{selectedBudget.total.toFixed(2)}€</span>
+                       </div>
                     </div>
                  </div>
-                 <button className="absolute bottom-6 right-6 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] p-4 rounded-[24px] flex items-center gap-2 text-[11px] font-black uppercase text-slate-800 border border-slate-100 hover:scale-105 transition-transform active:scale-95">
-                   <ChevronLeft className="w-4 h-4 rotate-180 text-blue-600" /> VISTA PREVIA
+                 <button className="absolute bottom-6 right-6 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] px-4 py-2.5 rounded-[20px] flex items-center gap-2 text-[9px] font-black uppercase text-slate-800 border border-slate-100 hover:scale-105 transition-transform active:scale-95">
+                    DOCUMENTO OFICIAL
                  </button>
               </div>
 
