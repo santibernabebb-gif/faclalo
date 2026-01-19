@@ -51,12 +51,12 @@ export async function generatePdf(
     });
   });
 
-  // 2. BORRADO DINÁMICO: Desde "IMPORTANTE" hasta el final (Y=0)
-  // El margen de seguridad asegura que la propia palabra IMPORTANTE quede tapada.
-  const safetyMargin = 25; 
-  let deleteFromY = budget.footerMarkerY ? (budget.footerMarkerY + safetyMargin) : 160;
+  // 2. BORRADO DINÁMICO: Desde "IMPORTANTE:" hasta el final (Y=0)
+  // Usamos un margen de seguridad de 35 puntos para cubrir la propia palabra y cualquier espacio superior
+  const safetyMargin = 35; 
+  let deleteFromY = budget.footerMarkerY ? (budget.footerMarkerY + safetyMargin) : 180;
 
-  // Dibujamos el rectángulo blanco de borrado total del pie
+  // Dibujamos UN SOLO rectángulo blanco opaco que cubra desde la detección hasta el borde inferior (Y=0)
   firstPage.drawRectangle({
     x: 0,
     y: 0,
@@ -66,7 +66,7 @@ export async function generatePdf(
     opacity: 1
   });
 
-  // 3. Escribir nuevos datos
+  // 3. Escribir nuevos datos sobre las áreas limpiadas
   const titleText = OVERLAY.texts.titulo.label;
   const titleSize = OVERLAY.texts.titulo.size;
   const titleWidth = fontBold.widthOfTextAtSize(titleText, titleSize);
@@ -106,7 +106,6 @@ export async function generatePdf(
   return URL.createObjectURL(blob);
 }
 
-// Fix: Updated generateDocx signature to accept parameters expected by InvoiceEditor.tsx call site (line 32)
 export async function generateDocx(
   _budget: BudgetData, 
   _config: InvoiceConfig, 
