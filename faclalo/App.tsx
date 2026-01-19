@@ -19,7 +19,7 @@ const App: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [invoiceConfig, setInvoiceConfig] = useState({
-    number: "FACT-2026-0001",
+    number: "1", // Solo el número, el prefijo es fijo
     date: new Date().toISOString().split('T')[0]
   });
 
@@ -50,12 +50,15 @@ const App: React.FC = () => {
     }
   };
 
+  const getFullInvoiceCode = () => `FACT-2026-${invoiceConfig.number.padStart(4, '0')}`;
+
   const handleDownload = async () => {
     if (!selectedBudget) return;
+    const fullCode = getFullInvoiceCode();
     await generatePdf(selectedBudget, { 
-      number: parseInt(invoiceConfig.number.replace(/\D/g, '')) || 1, 
+      number: parseInt(invoiceConfig.number) || 1, 
       date: invoiceConfig.date 
-    }, invoiceConfig.number);
+    }, fullCode);
   };
 
   return (
@@ -66,29 +69,27 @@ const App: React.FC = () => {
         {/* Top Header Bar */}
         <div className="px-6 pt-8 pb-4 flex items-center justify-between z-10">
           <div className="flex items-center gap-3">
-            {currentStep !== Step.UPLOAD ? (
+            {currentStep !== Step.UPLOAD && (
               <button onClick={() => setCurrentStep(currentStep - 1)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
                 <ChevronLeft className="w-6 h-6 text-slate-400" />
               </button>
-            ) : (
-              <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
-                <FileText className="w-5 h-5 text-blue-600" />
-              </div>
             )}
-            <h2 className="text-[17px] font-black text-slate-800 uppercase tracking-tight">
-              {currentStep === Step.UPLOAD && "Subir Presupuesto"}
-              {currentStep === Step.SETUP && "Configurar Factura"}
-              {currentStep === Step.PREVIEW && "Vista Previa"}
-            </h2>
+            <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
+              <FileText className="w-5 h-5 text-blue-600" />
+            </div>
+            <div className="flex flex-col">
+              <h2 className="text-[17px] font-black text-slate-800 uppercase tracking-tight leading-tight">
+                {currentStep === Step.UPLOAD ? "APP-Presupuestos" : 
+                 currentStep === Step.SETUP ? "Configurar Factura" : "Vista Previa"}
+              </h2>
+              <span className="text-[10px] font-bold text-blue-500 tracking-wider">By SantiSystems</span>
+            </div>
           </div>
           
-          {currentStep === Step.PREVIEW ? (
+          {currentStep === Step.PREVIEW && (
             <button onClick={() => setCurrentStep(Step.UPLOAD)} className="text-blue-600 font-black text-sm pr-2">HECHO</button>
-          ) : (
-            <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center border border-slate-200">
-              <User className="w-5 h-5 text-slate-400" />
-            </div>
           )}
+          {/* Perfil eliminado según instrucción */}
         </div>
 
         {/* Content Area */}
@@ -121,12 +122,16 @@ const App: React.FC = () => {
                 </div>
                 <div>
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nº Inicial</label>
-                  <input 
-                    type="text" 
-                    value={invoiceConfig.number}
-                    onChange={(e) => setInvoiceConfig({...invoiceConfig, number: e.target.value})}
-                    className="w-full mt-1.5 p-4 bg-white border border-slate-100 rounded-2xl text-[13px] font-bold outline-none focus:border-blue-400 shadow-sm"
-                  />
+                  <div className="relative flex items-center mt-1.5">
+                    <span className="absolute left-4 text-[13px] font-black text-slate-300 pointer-events-none">FACT-2026-</span>
+                    <input 
+                      type="text" 
+                      value={invoiceConfig.number}
+                      onChange={(e) => setInvoiceConfig({...invoiceConfig, number: e.target.value.replace(/\D/g, '')})}
+                      className="w-full p-4 pl-[88px] bg-white border border-slate-100 rounded-2xl text-[13px] font-bold outline-none focus:border-blue-400 shadow-sm"
+                      placeholder="0001"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -148,7 +153,7 @@ const App: React.FC = () => {
             <div className="space-y-6 animate-in fade-in slide-in-from-right-8 duration-500">
               <div className="pt-2">
                 <h1 className="text-[28px] font-black text-slate-900 leading-[1.1]">Finalizar Detalles</h1>
-                <p className="text-slate-400 text-[14px] mt-3 leading-relaxed font-medium">Confirma los datos a continuación para convertir el presupuesto en una factura formal.</p>
+                <p className="text-slate-400 text-[14px] mt-3 leading-relaxed font-medium">Confirma los datos a continuación para convertir el presupuesto en una factura profesional.</p>
               </div>
 
               <div className="space-y-4">
@@ -165,12 +170,13 @@ const App: React.FC = () => {
                 </div>
                 <div>
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Número de Factura</label>
-                  <div className="relative">
+                  <div className="relative flex items-center mt-1.5">
+                    <span className="absolute left-4 text-[15px] font-black text-slate-300 pointer-events-none">FACT-2026-</span>
                     <input 
                       type="text" 
                       value={invoiceConfig.number}
-                      onChange={(e) => setInvoiceConfig({...invoiceConfig, number: e.target.value})}
-                      className="w-full mt-1.5 p-4 bg-white border border-slate-100 rounded-2xl text-[15px] outline-none focus:border-blue-400 font-bold shadow-sm"
+                      onChange={(e) => setInvoiceConfig({...invoiceConfig, number: e.target.value.replace(/\D/g, '')})}
+                      className="w-full p-4 pl-[98px] bg-white border border-slate-100 rounded-2xl text-[15px] outline-none focus:border-blue-400 font-bold shadow-sm"
                     />
                   </div>
                 </div>
@@ -238,7 +244,7 @@ const App: React.FC = () => {
               <div className="flex justify-between items-center px-2">
                 <div>
                    <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Documento Actual</p>
-                   <p className="text-2xl font-black text-slate-900 tracking-tight">{invoiceConfig.number}</p>
+                   <p className="text-2xl font-black text-slate-900 tracking-tight">{getFullInvoiceCode()}</p>
                    <p className="text-[11px] text-slate-400 font-bold flex items-center gap-1.5 mt-1.5">
                      <History className="w-4 h-4" /> Emitido: {new Date(invoiceConfig.date).toLocaleDateString('es-ES', { month: 'long', day: 'numeric', year: 'numeric' })}
                    </p>
