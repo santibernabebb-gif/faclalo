@@ -27,10 +27,10 @@ export const MONTHS_ABREV = [
 ];
 
 export const EMISOR_DATA = {
-  name: "LALO SERVICIOS",
-  nif: "B12345678",
-  address: "Calle Principal 123",
-  city: "Madrid, 28001",
-  email: "contacto@lalo.es",
-  phone: "+34 600 000 000"
+  name: "Eduardo Quilis Llorens",
+  nif: "21667776-M",
+  address: "C/ Cervantes 41",
+  city: "Onil · 03430",
+  email: "quilislalo@gmail.com",
+  phone: "620-944-229"
 };
