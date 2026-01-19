@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 
 export const onRequest = async (context: any) => {
@@ -12,28 +13,19 @@ export const onRequest = async (context: any) => {
     
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Eres un experto en extracción de datos de presupuestos de reformas y pintura. 
-      Analiza el siguiente texto extraído de un PDF y genera un objeto JSON con la información solicitada.
+      contents: `Extrae los datos de este presupuesto en formato JSON. 
+      Busca el nombre del cliente, la fecha (dd/mm/aaaa), y las líneas de la tabla (descripción, unidades, precio unitario, total). 
+      Calcula subtotal, iva (21%) y total final si no están claros.
       
-      INSTRUCCIONES CRÍTICAS:
-      1. Busca el NOMBRE DEL CLIENTE: Suele aparecer después de palabras como "Cliente:", "A la atención de:", o cerca de la dirección de entrega. Si no lo encuentras, busca nombres de personas físicas o empresas en el encabezado.
-      2. Busca la FECHA: En formato dd/mm/aaaa.
-      3. Extrae la TABLA DE CONCEPTOS: Identifica cada línea de trabajo. 
-         - Descripción: El servicio realizado.
-         - Unidades: Cantidad (si no hay, pon 1).
-         - Precio Unitario: El coste por unidad.
-         - Total: El resultado de unidades * precio unitario.
-      4. Totales: Calcula el subtotal (suma de líneas), el IVA (21% del subtotal) y el Total Final.
-      
-      TEXTO DEL PRESUPUESTO:
+      Texto del presupuesto:
       ${text}`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            clientName: { type: Type.STRING, description: "Nombre completo del cliente" },
-            date: { type: Type.STRING, description: "Fecha en formato dd/mm/aaaa" },
+            clientName: { type: Type.STRING },
+            date: { type: Type.STRING },
             lines: {
               type: Type.ARRAY,
               items: {
