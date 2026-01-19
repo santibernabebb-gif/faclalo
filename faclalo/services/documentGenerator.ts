@@ -91,9 +91,7 @@ export async function generatePdf(
   // Eliminamos visualmente todo desde la marca 'IMPORTANTE' hacia abajo mediante CropBox.
   const DEBUG_CROP = false;
   if (budget.footerMarkerY !== undefined) {
-    // Implementación dinámica: ajustamos el margen para dar más "aire" al total
-    // Un valor menor de EXTRA_BOTTOM_MARGIN (comparado con el anterior safetyMargin=22)
-    // hace que el corte sea más bajo, dejando más espacio visible debajo del total.
+    // Revertido a un margen más conservador para evitar desbordar el alto de página
     const EXTRA_BOTTOM_MARGIN = 10; 
     const yImportantePdfLib = budget.footerMarkerY;
     const yCut = yImportantePdfLib + EXTRA_BOTTOM_MARGIN;
@@ -102,9 +100,12 @@ export async function generatePdf(
     const newHeight = LAYOUT.height - yCut;
     
     // El CropBox define la región rectangular de la página que se va a mostrar/imprimir.
-    firstPage.setCropBox(0, yCut, LAYOUT.width, newHeight);
+    // Solo aplicamos si el cálculo es válido (altura positiva)
+    if (newHeight > 0) {
+      firstPage.setCropBox(0, yCut, LAYOUT.width, newHeight);
+    }
 
-    if (DEBUG_CROP) {
+    if (DEBUG_CROP && newHeight > 0) {
       // Línea guía en el punto de corte
       firstPage.drawLine({
         start: { x: 0, y: yCut },
