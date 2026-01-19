@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
 import { Download, Loader2, FileCode, Printer } from 'lucide-react';
-import { BudgetData, MONTHS_ABREV } from '../types';
+// Fix: Import MONTHS_ABREV_ES instead of MONTHS_ABREV as it is the correct exported name in types.ts
+import { BudgetData, MONTHS_ABREV_ES } from '../types';
 import { generateDocx, generatePdf } from '../services/documentGenerator';
 
 interface InvoiceEditorProps {
@@ -19,7 +20,8 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({ budget, onBack }) 
   const getInvoiceCode = () => {
     const dateObj = new Date(invoiceDate);
     const monthIndex = dateObj.getMonth();
-    const monthStr = MONTHS_ABREV[monthIndex];
+    // Fix: Use MONTHS_ABREV_ES instead of MONTHS_ABREV
+    const monthStr = MONTHS_ABREV_ES[monthIndex];
     return `FACTURA ${invoiceNumber} ${monthStr}-26`;
   };
 

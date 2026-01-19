@@ -15,14 +15,19 @@ export interface BudgetData {
   subtotal: number;
   iva: number;
   total: number;
+  detectedTotals?: {
+    subtotal: number;
+    iva: number;
+    total: number;
+  };
 }
 
 export interface InvoiceConfig {
-  number: number;
+  number: string;
   date: string;
 }
 
-export const MONTHS_ABREV = [
+export const MONTHS_ABREV_ES = [
   'ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'
 ];
 

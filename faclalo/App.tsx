@@ -1,9 +1,9 @@
 
-import React, { useState } from 'react';
-import { ChevronLeft, Loader2, AlertCircle, CheckCircle2, FileText, Download, Share2, Mail, MessageSquare, History, MoreHorizontal, User } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ChevronLeft, Loader2, AlertCircle, CheckCircle2, FileText, Download, Share2, Mail, MessageSquare, History, MoreHorizontal, User, Edit3, Save } from 'lucide-react';
 import { FileUploader } from './components/FileUploader';
 import { BudgetList } from './components/BudgetList';
-import { BudgetData } from './types';
+import { BudgetData, MONTHS_ABREV_ES } from './types';
 import { generatePdf } from './services/documentGenerator';
 
 enum Step {
@@ -19,7 +19,7 @@ const App: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [invoiceConfig, setInvoiceConfig] = useState({
-    number: "1", // Solo el número, el prefijo es fijo
+    number: "1",
     date: new Date().toISOString().split('T')[0]
   });
 
@@ -28,6 +28,13 @@ const App: React.FC = () => {
     if (newBudgets.length > 0) {
       setSelectedBudget(newBudgets[0]);
     }
+  };
+
+  const getFullInvoiceCode = () => {
+    const dateObj = new Date(invoiceConfig.date);
+    const monthIndex = dateObj.getMonth();
+    const monthAbrev = MONTHS_ABREV_ES[monthIndex];
+    return `FACTURA ${invoiceConfig.number} ${monthAbrev}-26`;
   };
 
   const startConversion = () => {
@@ -42,31 +49,37 @@ const App: React.FC = () => {
     if (!selectedBudget) return;
     setIsProcessing(true);
     try {
-      setCurrentStep(Step.PREVIEW);
+      // Simular un pequeño procesamiento para feedback visual
+      setTimeout(() => {
+        setCurrentStep(Step.PREVIEW);
+        setIsProcessing(false);
+      }, 800);
     } catch (err) {
       setError("Error al procesar la factura.");
-    } finally {
       setIsProcessing(false);
     }
   };
-
-  const getFullInvoiceCode = () => `Factura-2026-${invoiceConfig.number.padStart(4, '0')}`;
 
   const handleDownload = async () => {
     if (!selectedBudget) return;
     const fullCode = getFullInvoiceCode();
     await generatePdf(selectedBudget, { 
-      number: parseInt(invoiceConfig.number) || 1, 
+      number: invoiceConfig.number, 
       date: invoiceConfig.date 
     }, fullCode);
   };
 
+  const updateSelectedBudget = (updates: Partial<BudgetData>) => {
+    if (selectedBudget) {
+      setSelectedBudget({ ...selectedBudget, ...updates });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4 font-sans">
-      {/* Mobile-style Container with very rounded corners */}
       <div className="w-full max-w-[420px] bg-white rounded-[40px] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] overflow-hidden border border-slate-100 flex flex-col h-[880px] relative">
         
-        {/* Top Header Bar */}
+        {/* Header */}
         <div className="px-6 pt-8 pb-4 flex items-center justify-between z-10">
           <div className="flex items-center gap-3">
             {currentStep !== Step.UPLOAD && (
@@ -80,21 +93,17 @@ const App: React.FC = () => {
             <div className="flex flex-col">
               <h2 className="text-[17px] font-black text-slate-800 uppercase tracking-tight leading-tight">
                 {currentStep === Step.UPLOAD ? "APP-Presupuestos" : 
-                 currentStep === Step.SETUP ? "Configurar Factura" : "Vista Previa"}
+                 currentStep === Step.SETUP ? "Revisar Datos" : "Vista Previa"}
               </h2>
               <span className="text-[10px] font-bold text-blue-500 tracking-wider">By SantiSystems</span>
             </div>
           </div>
-          
-          {currentStep === Step.PREVIEW && (
-            <button onClick={() => setCurrentStep(Step.UPLOAD)} className="text-blue-600 font-black text-sm pr-2">HECHO</button>
-          )}
         </div>
 
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto px-6 pb-32">
           {error && (
-            <div className="mb-4 bg-red-50 border border-red-100 text-red-700 p-3 rounded-2xl flex items-center gap-2 text-xs font-bold animate-in fade-in slide-in-from-top-2">
+            <div className="mb-4 bg-red-50 border border-red-100 text-red-700 p-3 rounded-2xl flex items-center gap-2 text-xs font-bold">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
               <span>{error}</span>
             </div>
@@ -109,38 +118,13 @@ const App: React.FC = () => {
                 onError={setError}
               />
               
-              <div className="grid grid-cols-2 gap-4 pt-2">
-                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha Factura</label>
-                  <input 
-                    type="date" 
-                    value={invoiceConfig.date}
-                    onChange={(e) => setInvoiceConfig({...invoiceConfig, date: e.target.value})}
-                    className="w-full mt-1.5 p-4 bg-white border border-slate-100 rounded-2xl text-[13px] font-bold outline-none focus:border-blue-400 shadow-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Número de Factura</label>
-                  <div className="relative flex items-center mt-1.5">
-                    <input 
-                      type="text" 
-                      value={invoiceConfig.number}
-                      onChange={(e) => setInvoiceConfig({...invoiceConfig, number: e.target.value.replace(/\D/g, '')})}
-                      className="w-full p-4 bg-white border border-slate-100 rounded-2xl text-[13px] font-bold outline-none focus:border-blue-400 shadow-sm"
-                      placeholder="Ej: 1"
-                    />
-                  </div>
-                </div>
-              </div>
-
               <div className="pt-2">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="font-black text-slate-800 text-[16px]">Presupuestos Recientes</h3>
-                  <button className="text-blue-600 text-[12px] font-black uppercase">Ver Todos</button>
                 </div>
                 <BudgetList 
                   budgets={budgets} 
-                  onSelect={(b) => { setSelectedBudget(b); startConversion(); }}
+                  onSelect={(b) => { setSelectedBudget(b); setCurrentStep(Step.SETUP); }}
                   onDelete={(id) => setBudgets(prev => prev.filter(b => b.id !== id))}
                 />
               </div>
@@ -150,53 +134,64 @@ const App: React.FC = () => {
           {currentStep === Step.SETUP && selectedBudget && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-8 duration-500">
               <div className="pt-2">
-                <h1 className="text-[28px] font-black text-slate-900 leading-[1.1]">Finalizar Detalles</h1>
-                <p className="text-slate-400 text-[14px] mt-3 leading-relaxed font-medium">Confirma los datos a continuación para convertir el presupuesto en una factura profesional.</p>
+                <h1 className="text-[24px] font-black text-slate-900 leading-[1.1]">Configurar Factura</h1>
+                <p className="text-slate-400 text-[13px] mt-2 font-medium">Revisa los datos extraídos del presupuesto.</p>
               </div>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha de Factura</label>
-                  <div className="relative">
-                    <input 
-                      type="date" 
-                      value={invoiceConfig.date}
-                      onChange={(e) => setInvoiceConfig({...invoiceConfig, date: e.target.value})}
-                      className="w-full mt-1.5 p-4 bg-white border border-slate-100 rounded-2xl text-[15px] outline-none focus:border-blue-400 font-bold shadow-sm"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Número de Factura</label>
-                  <div className="relative flex items-center mt-1.5">
+              <div className="bg-slate-50 p-5 rounded-[28px] border border-slate-100 space-y-4">
+                 <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Cliente</label>
                     <input 
                       type="text" 
-                      value={invoiceConfig.number}
-                      onChange={(e) => setInvoiceConfig({...invoiceConfig, number: e.target.value.replace(/\D/g, '')})}
-                      className="w-full p-4 bg-white border border-slate-100 rounded-2xl text-[15px] outline-none focus:border-blue-400 font-bold shadow-sm"
-                      placeholder="Ej: 1"
+                      value={selectedBudget.clientName}
+                      onChange={(e) => updateSelectedBudget({ clientName: e.target.value })}
+                      className="w-full mt-1 p-3 bg-white border border-slate-100 rounded-xl text-sm font-bold focus:border-blue-400 outline-none"
                     />
-                  </div>
-                </div>
+                 </div>
+                 <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nº Factura</label>
+                      <input 
+                        type="number" 
+                        value={invoiceConfig.number}
+                        onChange={(e) => setInvoiceConfig({...invoiceConfig, number: e.target.value})}
+                        className="w-full mt-1 p-3 bg-white border border-slate-100 rounded-xl text-sm font-bold focus:border-blue-400 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha Factura</label>
+                      <input 
+                        type="date" 
+                        value={invoiceConfig.date}
+                        onChange={(e) => setInvoiceConfig({...invoiceConfig, date: e.target.value})}
+                        className="w-full mt-1 p-3 bg-white border border-slate-100 rounded-xl text-sm font-bold focus:border-blue-400 outline-none"
+                      />
+                    </div>
+                 </div>
+                 <div className="pt-2">
+                    <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest ml-1">Código Final</p>
+                    <p className="text-lg font-black text-slate-900">{getFullInvoiceCode()}</p>
+                 </div>
               </div>
 
-              <div className="pt-4">
-                <div className="flex justify-between items-center mb-3">
-                  <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">PDF del Presupuesto Original</h3>
-                  <span className="bg-blue-50 text-blue-600 text-[10px] font-black px-2.5 py-1 rounded-full uppercase border border-blue-100">Subido</span>
-                </div>
-                <div className="p-4 bg-slate-50/50 rounded-[28px] border border-slate-100 flex items-center gap-4">
-                  <div className="w-12 h-16 bg-white rounded-xl shadow-sm border border-slate-100 flex flex-col p-2 gap-1.5">
-                    <div className="w-full h-1.5 bg-blue-100 rounded-full"></div>
-                    <div className="w-3/4 h-1.5 bg-slate-100 rounded-full"></div>
-                    <div className="mt-auto w-full h-1 bg-slate-50 rounded-full"></div>
-                  </div>
-                  <div className="flex-1 overflow-hidden">
-                    <p className="text-[15px] font-black text-slate-800 truncate">{selectedBudget.fileName}</p>
-                    <p className="text-[11px] text-slate-400 font-bold mt-1">1.2 MB • {selectedBudget.date}</p>
-                  </div>
-                  <button onClick={() => setCurrentStep(Step.UPLOAD)} className="text-blue-600 text-xs font-black px-3 py-2 hover:bg-white rounded-xl transition-colors uppercase">Reemplazar</button>
-                </div>
+              <div className="space-y-3">
+                 <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Líneas de la Tabla</h3>
+                 <div className="max-h-[200px] overflow-y-auto space-y-2 pr-1">
+                    {selectedBudget.lines.map((line, idx) => (
+                      <div key={idx} className="p-3 bg-white border border-slate-100 rounded-xl flex justify-between items-center text-xs">
+                        <span className="font-bold text-slate-700 truncate max-w-[150px]">{line.description}</span>
+                        <span className="font-black text-blue-600">{line.total.toFixed(2)}€</span>
+                      </div>
+                    ))}
+                 </div>
+              </div>
+
+              <div className="bg-blue-600 p-5 rounded-[28px] text-white">
+                 <div className="flex justify-between items-center opacity-70 text-[10px] font-black uppercase tracking-widest">
+                    <span>Total Factura</span>
+                    <span>IVA 21% Incl.</span>
+                 </div>
+                 <div className="text-3xl font-black mt-1">{selectedBudget.total.toFixed(2)}€</div>
               </div>
             </div>
           )}
@@ -205,111 +200,72 @@ const App: React.FC = () => {
             <div className="space-y-6 animate-in fade-in slide-in-from-right-8 duration-500">
               <div className="bg-emerald-50 text-emerald-600 p-3.5 rounded-[24px] flex items-center justify-center gap-2 text-xs font-black border border-emerald-100">
                 <CheckCircle2 className="w-4 h-4" />
-                <span>Factura Generada con Éxito</span>
+                <span>Factura Lista</span>
               </div>
 
-              <div className="text-center px-4">
-                <h1 className="text-[28px] font-black text-slate-900 leading-tight">Lista para enviar</h1>
-                <p className="text-slate-400 text-[14px] mt-2 leading-relaxed font-medium">Tu presupuesto PDF ha sido convertido en una factura profesional.</p>
-              </div>
-
-              {/* Dynamic Preview Box */}
-              <div className="aspect-[3/4] bg-slate-100 rounded-[40px] shadow-inner relative flex items-center justify-center p-6 overflow-hidden group">
-                 <div className="w-full h-full bg-white rounded-xl shadow-2xl flex flex-col p-6 border border-slate-200 group-hover:scale-[1.02] transition-transform duration-700">
-                    <div className="flex justify-between items-start">
-                      <div className="space-y-1">
-                        <div className="w-16 h-3 bg-blue-500 rounded-full mb-2"></div>
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Emisor</p>
-                        <p className="text-[9px] font-bold text-slate-800 uppercase tracking-tighter">Eduardo Quilis Llorens</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Nº {getFullInvoiceCode()}</p>
-                        <p className="text-[8px] text-slate-400 font-bold mt-1">{new Date(invoiceConfig.date).toLocaleDateString()}</p>
-                      </div>
-                    </div>
-
-                    <div className="mt-8">
-                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Facturar a</p>
-                       <p className="text-[11px] font-black text-slate-900 leading-tight uppercase tracking-tight">{selectedBudget.clientName}</p>
-                    </div>
-
-                    <div className="mt-8 flex-1 overflow-hidden">
-                       <table className="w-full border-collapse">
-                          <thead>
-                            <tr className="border-b border-slate-100 text-[8px] font-black text-slate-400 uppercase text-left">
-                               <th className="pb-1.5">Descripción</th>
-                               <th className="pb-1.5 text-right">Cant.</th>
-                               <th className="pb-1.5 text-right">Total</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-50">
-                            {selectedBudget.lines.slice(0, 8).map((line, i) => (
-                              <tr key={i}>
-                                <td className="py-2 text-[9px] font-medium text-slate-700 truncate max-w-[120px] leading-tight">{line.description}</td>
-                                <td className="py-2 text-[9px] text-right text-slate-500">{line.units}</td>
-                                <td className="py-2 text-[9px] text-right font-bold text-slate-900">{line.total.toFixed(2)}€</td>
-                              </tr>
-                            ))}
-                            {selectedBudget.lines.length > 8 && (
-                               <tr><td colSpan={3} className="py-1 text-[8px] text-center text-slate-300">... y {selectedBudget.lines.length - 8} ítems más</td></tr>
-                            )}
-                          </tbody>
-                       </table>
-                    </div>
-
-                    <div className="mt-6 pt-4 border-t border-slate-100 space-y-1.5">
-                       <div className="flex justify-between items-center text-[9px] text-slate-500 font-bold">
-                          <span>SUBTOTAL</span>
-                          <span>{selectedBudget.subtotal.toFixed(2)}€</span>
+              <div className="aspect-[3/4] bg-slate-100 rounded-[40px] shadow-inner relative flex items-center justify-center p-6 overflow-hidden">
+                 <div className="w-full h-full bg-white rounded-xl shadow-2xl flex flex-col p-6 border border-slate-200">
+                    <div className="flex justify-between">
+                       <div className="w-16 h-3 bg-blue-500 rounded-full"></div>
+                       <div className="text-right">
+                          <p className="text-[8px] font-black text-blue-600">{getFullInvoiceCode()}</p>
+                          <p className="text-[6px] text-slate-400">FECHA: {invoiceConfig.date}</p>
                        </div>
-                       <div className="flex justify-between items-center text-[9px] text-slate-500 font-bold">
-                          <span>IVA 21%</span>
-                          <span>{selectedBudget.iva.toFixed(2)}€</span>
-                       </div>
-                       <div className="flex justify-between items-center pt-2 text-[11px] font-black text-slate-900 border-t border-slate-50 uppercase">
+                    </div>
+                    <div className="mt-8 space-y-2">
+                       <div className="w-full h-1 bg-slate-100 rounded-full"></div>
+                       <div className="w-3/4 h-1 bg-slate-100 rounded-full"></div>
+                    </div>
+                    <div className="mt-8 flex-1 border-y border-slate-50 py-4">
+                       <div className="flex justify-between text-[7px] font-black text-slate-300 border-b pb-1">
+                          <span>ITEM</span>
                           <span>TOTAL</span>
-                          <span className="text-blue-600">{selectedBudget.total.toFixed(2)}€</span>
+                       </div>
+                       {selectedBudget.lines.slice(0, 5).map((l, i) => (
+                         <div key={i} className="flex justify-between text-[7px] py-1 border-b border-slate-50">
+                            <span className="truncate max-w-[60px]">{l.description}</span>
+                            <span>{l.total.toFixed(2)}€</span>
+                         </div>
+                       ))}
+                    </div>
+                    <div className="mt-4 self-end w-24 space-y-1">
+                       <div className="flex justify-between text-[6px] text-slate-400"><span>Subtotal</span><span>{selectedBudget.subtotal.toFixed(2)}€</span></div>
+                       <div className="flex justify-between text-[8px] font-black text-blue-600 border-t pt-1"><span>TOTAL</span><span>{selectedBudget.total.toFixed(2)}€</span></div>
+                    </div>
+                 </div>
+                 <div className="absolute inset-0 bg-slate-900/5 flex items-center justify-center">
+                    <div className="bg-white/90 backdrop-blur p-4 rounded-3xl shadow-xl flex items-center gap-3">
+                       <div className="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center text-white"><FileText /></div>
+                       <div className="text-left">
+                          <p className="text-xs font-black text-slate-900">Plantilla Aplicada</p>
+                          <p className="text-[10px] font-bold text-slate-400 tracking-tight">Fondo: BASE_PDF</p>
                        </div>
                     </div>
                  </div>
-                 <button className="absolute bottom-6 right-6 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] px-4 py-2.5 rounded-[20px] flex items-center gap-2 text-[9px] font-black uppercase text-slate-800 border border-slate-100 hover:scale-105 transition-transform active:scale-95">
-                    DOCUMENTO OFICIAL
-                 </button>
               </div>
 
-              <div className="flex justify-between items-center px-2">
-                <div>
-                   <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Documento Actual</p>
-                   <p className="text-2xl font-black text-slate-900 tracking-tight">{getFullInvoiceCode()}</p>
-                   <p className="text-[11px] text-slate-400 font-bold flex items-center gap-1.5 mt-1.5">
-                     <History className="w-4 h-4" /> Emitido: {new Date(invoiceConfig.date).toLocaleDateString('es-ES', { month: 'long', day: 'numeric', year: 'numeric' })}
-                   </p>
-                </div>
-                <span className="bg-blue-50 text-blue-600 text-[10px] font-black px-4 py-1.5 rounded-full uppercase border border-blue-100">OFICIAL</span>
-              </div>
-
-              <div className="space-y-5 pt-4">
-                <p className="text-center text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Compartir con el cliente</p>
-                <div className="flex justify-between items-center px-2">
-                  {[Mail, MessageSquare, History, MoreHorizontal].map((Icon, i) => (
-                    <button key={i} className="w-14 h-14 bg-white rounded-[24px] flex items-center justify-center text-slate-800 border border-slate-100 shadow-sm hover:shadow-md hover:bg-slate-50 transition-all active:scale-90">
-                      <Icon className="w-6 h-6" />
-                    </button>
-                  ))}
-                </div>
+              <div className="space-y-4">
+                 <div className="flex justify-between items-center px-2">
+                    <div>
+                       <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Documento</p>
+                       <p className="text-xl font-black text-slate-900">{getFullInvoiceCode()}</p>
+                    </div>
+                    <span className="bg-blue-50 text-blue-600 text-[10px] font-black px-4 py-1.5 rounded-full uppercase border border-blue-100">OFICIAL</span>
+                 </div>
               </div>
             </div>
           )}
         </div>
 
-        {/* Global Action Button Area - Matches specific glowing style */}
+        {/* Action Button */}
         <div className="absolute bottom-8 left-0 right-0 px-6 z-20">
           {currentStep === Step.UPLOAD && (
             <button 
+              disabled={!selectedBudget}
               onClick={startConversion}
-              className="w-full h-16 bg-gradient-to-r from-blue-600 to-blue-400 text-white rounded-[24px] font-black text-[17px] shadow-[0_12px_40px_-10px_rgba(59,130,246,0.6)] hover:brightness-110 active:scale-[0.97] transition-all flex items-center justify-center gap-3 uppercase tracking-wider"
+              className="w-full h-16 bg-gradient-to-r from-blue-600 to-blue-400 text-white rounded-[24px] font-black text-[17px] shadow-[0_12px_40px_-10px_rgba(59,130,246,0.6)] disabled:opacity-50 transition-all flex items-center justify-center gap-3 uppercase tracking-wider"
             >
-              <FileText className="w-5 h-5" /> Iniciar Conversión
+              <Edit3 className="w-5 h-5" /> Revisar y Editar
             </button>
           )}
           {currentStep === Step.SETUP && (
@@ -317,7 +273,7 @@ const App: React.FC = () => {
               onClick={handleGenerate}
               className="w-full h-16 bg-gradient-to-r from-blue-600 to-blue-400 text-white rounded-[24px] font-black text-[17px] shadow-[0_12px_40px_-10px_rgba(59,130,246,0.6)] hover:brightness-110 active:scale-[0.97] transition-all flex items-center justify-center gap-3 uppercase tracking-wider"
             >
-              <FileText className="w-5 h-5" /> Generar Factura
+              <Save className="w-5 h-5" /> Confirmar Datos
             </button>
           )}
           {currentStep === Step.PREVIEW && (
@@ -326,10 +282,10 @@ const App: React.FC = () => {
                 onClick={handleDownload}
                 className="w-full h-16 bg-gradient-to-r from-blue-600 to-blue-400 text-white rounded-[24px] font-black text-[17px] shadow-[0_12px_40px_-10px_rgba(59,130,246,0.6)] hover:brightness-110 active:scale-[0.97] transition-all flex items-center justify-center gap-3 uppercase tracking-wider"
               >
-                <Download className="w-5 h-5" /> Descargar PDF
+                <Download className="w-5 h-5" /> Descargar Factura
               </button>
-              <button className="w-full h-16 bg-slate-900 text-white rounded-[24px] font-black text-[17px] shadow-[0_12px_40px_-10px_rgba(15,23,42,0.4)] hover:bg-slate-800 active:scale-[0.97] transition-all flex items-center justify-center gap-3 uppercase tracking-wider">
-                <History className="w-5 h-5" /> Guardar en Historial
+              <button onClick={() => setCurrentStep(Step.UPLOAD)} className="w-full h-16 bg-slate-900 text-white rounded-[24px] font-black text-[17px] shadow-[0_12px_40px_-10px_rgba(15,23,42,0.4)] hover:bg-slate-800 active:scale-[0.97] transition-all flex items-center justify-center gap-3 uppercase tracking-wider">
+                <Plus className="w-5 h-5" /> Subir Otro
               </button>
             </div>
           )}
@@ -344,13 +300,16 @@ const App: React.FC = () => {
             <FileText className="absolute inset-0 m-auto w-8 h-8 text-blue-500 animate-pulse" />
           </div>
           <div className="space-y-2">
-            <h3 className="font-black text-2xl tracking-tight uppercase">Procesando documento</h3>
-            <p className="text-slate-300 font-bold max-w-xs mx-auto">La IA de Gemini está analizando tu presupuesto y preparando tu factura profesional...</p>
+            <h3 className="font-black text-2xl tracking-tight uppercase">Generando Factura</h3>
+            <p className="text-slate-300 font-bold max-w-xs mx-auto">Aplicando plantilla oficial y procesando importes...</p>
           </div>
         </div>
       )}
     </div>
   );
 };
+
+// Icon Plus not imported
+import { Plus } from 'lucide-react';
 
 export default App;
