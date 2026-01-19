@@ -1,24 +1,28 @@
 
 import { BudgetData, InvoiceConfig, MONTHS_ABREV_ES } from '../types';
 
-// AJUSTES DE COORDENADAS - Modo Ajuste
+// AJUSTES DE COORDENADAS - Modo Ajuste Final
 const DEBUG_GUIDES = false; 
 
-// Configuración de Zonas de Intervención (Basado en el layout A4 estándar del presupuesto)
-const OVERLAY_CONFIG = {
-  // 1. Zonas de Tapado (Rectángulos Blancos Opacos)
+// Configuración de Layout A4 (Ancho estándar: 595 puntos)
+const LAYOUT = {
+  width: 595,
+  height: 842,
+  blueColor: { r: 0.27, g: 0.45, b: 0.72 } // Azul corporativo
+};
+
+const OVERLAY = {
+  // 1. Zonas de Tapado (Rectángulos Blancos 100% Opacos)
   covers: [
-    { name: "titulo_superior", x: 320, y: 780, w: 250, h: 50 },  // Tapa "PRESUPUESTO" cabecera
-    { name: "titulo_inferior", x: 30, y: 25, w: 250, h: 45 },    // Tapa "PRESUPUESTO" pie de página
-    { name: "bloque_cliente",  x: 45, y: 645, w: 350, h: 22 },   // Tapa "Cliente: [Nombre Anterior]"
-    { name: "bloque_fecha",    x: 45, y: 625, w: 250, h: 20 },   // Tapa "Fecha: [Fecha Anterior]"
+    { name: "cabecera_total", x: 0, y: 760, w: 595, h: 82 },    // Limpia TODA la franja superior
+    { name: "pie_pagina",     x: 0, y: 0, w: 595, h: 70 },      // Limpia TODO el pie de página
+    { name: "bloque_datos",   x: 40, y: 615, w: 515, h: 55 },   // Limpia zona de Cliente/Fecha original
   ],
-  // 2. Posiciones de Texto Nuevo
+  // 2. Posiciones de Texto Final
   texts: {
-    factura_titulo: { x: 355, y: 792, size: 32, label: "FACTURA" },
-    cliente_linea:  { x: 50, y: 649, size: 11 },
-    fecha_linea:    { x: 50, y: 629, size: 11 },
-    num_factura:    { x: 48, y: 550, size: 13, rotateDeg: 90 }
+    titulo: { y: 790, size: 36, label: "FACTURA" },             // Centrado horizontalmente
+    sub_datos: { y: 635, size: 11 },                            // Cliente y Fecha en una línea
+    num_lateral: { x: 48, y: 550, size: 13, rotateDeg: 90 }     // Código de factura lateral
   }
 };
 
@@ -30,13 +34,13 @@ export async function generatePdf(
 ) {
   const PDFLib = (window as any).PDFLib;
   if (!PDFLib) {
-    alert("Error: PDF-Lib no está cargada.");
+    alert("Error: PDF-Lib no cargada.");
     return;
   }
   const { PDFDocument, rgb, StandardFonts, degrees } = PDFLib;
 
   if (!budget.originalBuffer || budget.originalBuffer.byteLength === 0) {
-    alert("El buffer del PDF original no está disponible.");
+    alert("Error: El PDF original no se ha cargado correctamente.");
     return;
   }
 
@@ -46,22 +50,20 @@ export async function generatePdf(
     });
     
     const pages = pdfDoc.getPages();
-    const firstPage = pages[0]; // Aplicamos cambios solo en la primera página
+    const firstPage = pages[0];
     const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
     // --- PASO 1: DIBUJAR TODOS LOS TAPADOS (RECTÁNGULOS BLANCOS) ---
-    // Dibujamos primero todos los parches para que el texto nuevo quede siempre encima
-    OVERLAY_CONFIG.covers.forEach(area => {
+    OVERLAY.covers.forEach(area => {
       firstPage.drawRectangle({
         x: area.x,
         y: area.y,
         width: area.w,
         height: area.h,
-        color: rgb(1, 1, 1), // Blanco 100% opaco
+        color: rgb(1, 1, 1),
         opacity: 1
       });
 
-      // Si el modo debug está activo, dibujamos el borde de la zona
       if (DEBUG_GUIDES) {
         firstPage.drawRectangle({
           x: area.x, y: area.y, width: area.w, height: area.h,
@@ -71,45 +73,45 @@ export async function generatePdf(
     });
 
     // --- PASO 2: DIBUJAR TODOS LOS TEXTOS NUEVOS ---
-    const t = OVERLAY_CONFIG.texts;
+    
+    // A. Título "FACTURA" (Calculamos centro exacto)
+    const titleText = OVERLAY.texts.titulo.label;
+    const titleSize = OVERLAY.texts.titulo.size;
+    const titleWidth = fontBold.widthOfTextAtSize(titleText, titleSize);
+    const centerX = (LAYOUT.width - titleWidth) / 2;
 
-    // A. Título Principal
-    firstPage.drawText(t.factura_titulo.label, {
-      x: t.factura_titulo.x,
-      y: t.factura_titulo.y,
-      size: t.factura_titulo.size,
+    firstPage.drawText(titleText, {
+      x: centerX,
+      y: OVERLAY.texts.titulo.y,
+      size: titleSize,
       font: fontBold,
-      color: rgb(0.27, 0.45, 0.72) // Azul corporativo
+      color: rgb(LAYOUT.blueColor.r, LAYOUT.blueColor.g, LAYOUT.blueColor.b)
     });
 
-    // B. Línea de Cliente (Escribimos etiqueta + valor para unificar estilo)
-    const clienteTexto = `CLIENTE: ${(budget.clientName || "DATO NO DISPONIBLE").toUpperCase()}`;
-    firstPage.drawText(clienteTexto, {
-      x: t.cliente_linea.x,
-      y: t.cliente_linea.y,
-      size: t.cliente_linea.size,
-      font: fontBold,
-      color: rgb(0, 0, 0)
-    });
-
-    // C. Línea de Fecha
+    // B. Bloque "CLIENTE" + "FECHA" (Línea unificada y centrada)
     const dateFormatted = config.date.split('-').reverse().join('/');
-    const fechaTexto = `FECHA: ${dateFormatted}`;
-    firstPage.drawText(fechaTexto, {
-      x: t.fecha_linea.x,
-      y: t.fecha_linea.y,
-      size: t.fecha_linea.size,
+    const cleanClient = (budget.clientName || "CLIENTE").toUpperCase();
+    const fullInfoLine = `CLIENTE: ${cleanClient}      |      FECHA: ${dateFormatted}`;
+    
+    const infoSize = OVERLAY.texts.sub_datos.size;
+    const infoWidth = fontBold.widthOfTextAtSize(fullInfoLine, infoSize);
+    const infoX = (LAYOUT.width - infoWidth) / 2;
+
+    firstPage.drawText(fullInfoLine, {
+      x: infoX,
+      y: OVERLAY.texts.sub_datos.y,
+      size: infoSize,
       font: fontBold,
       color: rgb(0, 0, 0)
     });
 
-    // D. Código de Factura (Número + Mes/Año)
+    // C. Código de Factura Lateral (Nº + MES-26)
     firstPage.drawText(invoiceCode, {
-      x: t.num_factura.x,
-      y: t.num_factura.y,
-      size: t.num_factura.size,
+      x: OVERLAY.texts.num_lateral.x,
+      y: OVERLAY.texts.num_lateral.y,
+      size: OVERLAY.texts.num_lateral.size,
       font: fontBold,
-      rotate: t.num_factura.rotateDeg ? degrees(t.num_factura.rotateDeg) : undefined,
+      rotate: degrees(OVERLAY.texts.num_lateral.rotateDeg),
       color: rgb(0, 0, 0)
     });
 
@@ -128,11 +130,11 @@ export async function generatePdf(
     link.click();
 
   } catch (error) {
-    console.error("Error al aplicar overlays:", error);
-    alert(`Error al generar la factura: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+    console.error("Error final de generación:", error);
+    alert(`Error: ${error instanceof Error ? error.message : 'No se pudo generar la factura'}`);
   }
 }
 
 export async function generateDocx(_b: any, _c: any, _i: any) {
-  alert("Generación de Word no disponible en modo Overlay.");
+  alert("El modo de generación DOCX no está disponible con el sistema de overlays.");
 }
