@@ -13,7 +13,7 @@ const LAYOUT = {
 
 // LÍMITES ESTRICTOS (Guardrails)
 const LIMITS = {
-  LOGO_LEFT_X: 560,    // Aumentado para permitir el alargamiento solicitado del blanco superior
+  LOGO_LEFT_X: 585,    // Aumentado para permitir el tapado de restos a la derecha del título
   Y_NAME_LIMIT: 780    // Límite inferior para no cortar "Eduardo Quilis Llorens"
 };
 
@@ -21,14 +21,14 @@ const OVERLAY = {
   // 1. Zonas de Tapado (Rectángulos Blancos 100% Opacos)
   // Se dibujan ANTES que cualquier texto nuevo
   covers: [
-    // CABECERA: Tapado "alargado" hacia la derecha (~5cm extra de ancho para cubrir restos)
-    { name: "top_header_cleaner", x: 10, y: 792, w: 550, h: 50 }, 
+    // CABECERA: Tapado ensanchado significativamente hacia la derecha para cubrir restos de "PRESUPUESTO"
+    { name: "top_header_cleaner", x: 10, y: 790, w: 575, h: 52 }, 
     
     // CUERPO: Tapado zona Cliente/Fecha original
     { name: "info_wipe",  x: 40,  y: 615, w: 515, h: 50 },  
     
-    // PIE: Limpieza inferior bajada (~3cm menos de altura para que no suba tanto)
-    { name: "footer_wipe", x: 0,   y: 0,   w: 595, h: 40 }, 
+    // PIE: Limpieza inferior bajada drásticamente (altura mínima para que quede en el borde inferior)
+    { name: "footer_wipe", x: 0,   y: 0,   w: 595, h: 10 }, 
   ],
   
   // 2. Posiciones de Texto Final
@@ -75,7 +75,7 @@ export async function generatePdf(
 
       // APLICAR GUARDRAILS A LOS TAPADOS DEL HEADER
       if (area.name.startsWith("top")) {
-        // Guardrail X: No invadir el margen extremo derecho si fuera necesario
+        // Guardrail X: No invadir el margen extremo derecho más de lo necesario
         if (finalX + finalW > LIMITS.LOGO_LEFT_X) {
           finalW = Math.max(0, LIMITS.LOGO_LEFT_X - finalX);
         }
