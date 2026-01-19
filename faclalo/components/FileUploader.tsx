@@ -48,21 +48,23 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
   };
 
   return (
-    <div className="bg-white p-2.5 rounded-[40px] border border-slate-100 shadow-sm">
-      <label className="flex flex-col items-center justify-center w-full aspect-[1/1.1] border-[2px] border-dashed border-blue-100 rounded-[32px] cursor-pointer bg-slate-50/30 hover:bg-blue-50/40 transition-all group overflow-hidden relative">
-        <div className="flex flex-col items-center justify-center p-8 text-center pb-24">
-          <div className="w-20 h-20 bg-blue-100 rounded-[28px] flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500 shadow-sm shadow-blue-100/50">
-             <Upload className="w-10 h-10 text-blue-600" />
+    <div className="bg-white p-2 rounded-[32px] border border-slate-100 shadow-sm">
+      <label className="flex flex-col items-center justify-center w-full min-h-[220px] border-[2px] border-dashed border-blue-100 rounded-[28px] cursor-pointer bg-slate-50/30 hover:bg-blue-50/40 transition-all group overflow-hidden relative py-6">
+        <div className="flex flex-col items-center justify-center px-6 text-center">
+          <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-500 shadow-sm shadow-blue-100/50">
+             <Upload className="w-6 h-6 text-blue-600" />
           </div>
-          <h4 className="text-2xl font-black text-slate-800 mb-3 tracking-tight uppercase">Subir Presupuesto</h4>
-          <p className="text-slate-400 text-[14px] leading-relaxed max-w-[220px] font-medium">
-            Arrastra y suelta o toca para seleccionar tu archivo. Solo se admiten formatos PDF.
+          <h4 className="text-[16px] font-black text-slate-800 mb-1 tracking-tight uppercase leading-tight max-w-[220px]">
+            Subir presupuesto para convertir
+          </h4>
+          <p className="text-slate-400 text-[11px] leading-tight max-w-[180px] font-bold">
+            Arrastra o selecciona tu PDF original.
           </p>
         </div>
 
-        {/* Action Button inside Uploader */}
-        <div className="absolute bottom-8 w-full px-8">
-           <div className="w-full h-14 bg-gradient-to-r from-blue-600 to-blue-400 text-white rounded-[20px] font-black text-[15px] flex items-center justify-center gap-2 shadow-[0_10px_30px_-5px_rgba(59,130,246,0.5)] active:scale-95 transition-transform uppercase">
+        {/* Inner Action Button - Matched with main app buttons */}
+        <div className="mt-6 w-full px-6">
+           <div className="w-full h-16 bg-gradient-to-r from-blue-600 to-blue-400 text-white rounded-[24px] font-black text-[17px] flex items-center justify-center gap-3 shadow-[0_12px_40px_-10px_rgba(59,130,246,0.6)] active:scale-95 transition-all uppercase tracking-wider">
              <Plus className="w-5 h-5" /> Seleccionar Archivo
            </div>
         </div>

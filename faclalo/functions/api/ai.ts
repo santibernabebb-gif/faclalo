@@ -13,11 +13,11 @@ export const onRequest = async (context: any) => {
     
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Extrae los datos de este presupuesto en formato JSON. 
+      contents: `Extrae los datos de esta FACTURA en formato JSON. 
       Busca el nombre del cliente, la fecha (dd/mm/aaaa), y las líneas de la tabla (descripción, unidades, precio unitario, total). 
       Calcula subtotal, iva (21%) y total final si no están claros.
       
-      Texto del presupuesto:
+      Texto de la FACTURA:
       ${text}`,
       config: {
         responseMimeType: "application/json",

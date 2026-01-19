@@ -14,7 +14,7 @@ export const BudgetList: React.FC<BudgetListProps> = ({ budgets, onSelect, onDel
     return (
       <div className="p-8 text-center bg-slate-50 rounded-3xl border border-slate-100">
         <FileCode className="w-12 h-12 mx-auto mb-3 opacity-20 text-blue-600" />
-        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">No hay presupuestos recientes</p>
+        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">No hay FACTURAS recientes</p>
       </div>
     );
   }

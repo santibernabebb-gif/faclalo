@@ -1,5 +1,4 @@
 
-import React, { useState, useEffect } from 'react';
 import { 
   ChevronLeft, 
   Loader2, 
@@ -18,6 +17,7 @@ import {
   XCircle,
   Settings
 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
 import { FileUploader } from './components/FileUploader';
 import { BudgetList } from './components/BudgetList';
 import { BudgetData, MONTHS_ABREV_ES } from './types';
@@ -53,9 +53,10 @@ const App: React.FC = () => {
       const monthIndex = dateObj.getMonth();
       const monthAbrev = MONTHS_ABREV_ES[monthIndex];
       const year = dateObj.getFullYear().toString().slice(-2);
-      return `FACTURA ${invoiceConfig.number} ${monthAbrev}-${year}`;
+      // Orden: Fecha primero, luego FACTURA y número
+      return `${monthAbrev}-${year} FACTURA ${invoiceConfig.number}`;
     } catch (e) {
-      return `FACTURA ${invoiceConfig.number} ???-26`;
+      return `???-26 FACTURA ${invoiceConfig.number}`;
     }
   };
 
@@ -63,7 +64,7 @@ const App: React.FC = () => {
     if (selectedBudget) {
       setCurrentStep(Step.SETUP);
     } else {
-      setError("Por favor, sube un presupuesto antes de continuar.");
+      setError("Por favor, sube una FACTURA antes de continuar.");
     }
   };
 
@@ -110,7 +111,7 @@ const App: React.FC = () => {
             </div>
             <div className="flex flex-col">
               <h2 className="text-[17px] font-black text-slate-800 uppercase tracking-tight leading-tight">
-                {currentStep === Step.UPLOAD ? "APP-Presupuestos" : 
+                {currentStep === Step.UPLOAD ? "APP-FACTURAS" : 
                  currentStep === Step.SETUP ? "Revisar Datos" : "Vista Previa"}
               </h2>
               <span className="text-[10px] font-bold text-blue-500 tracking-wider">By SantiSystems</span>
@@ -119,7 +120,7 @@ const App: React.FC = () => {
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-y-auto px-6 pb-32">
+        <div className="flex-1 overflow-y-auto px-6 pb-12">
           {error && (
             <div className="mb-4 bg-red-50 border border-red-100 text-red-700 p-3 rounded-2xl flex items-center gap-2 text-xs font-bold">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -129,7 +130,7 @@ const App: React.FC = () => {
           )}
 
           {currentStep === Step.UPLOAD && (
-            <div className="space-y-6 animate-in fade-in duration-500">
+            <div className="space-y-4 animate-in fade-in duration-500">
               <FileUploader 
                 onProcessingStart={() => setIsProcessing(true)}
                 onProcessingEnd={() => setIsProcessing(false)}
@@ -137,6 +138,14 @@ const App: React.FC = () => {
                 onError={setError}
               />
               
+              <button 
+                disabled={!selectedBudget}
+                onClick={startConversion}
+                className="w-full h-16 bg-gradient-to-r from-blue-600 to-blue-400 text-white rounded-[24px] font-black text-[17px] shadow-[0_12px_40px_-10px_rgba(59,130,246,0.6)] disabled:opacity-50 transition-all flex items-center justify-center gap-3 uppercase tracking-wider"
+              >
+                <Edit3 className="w-5 h-5" /> Configurar Archivo
+              </button>
+
               <div className="pt-2">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="font-black text-slate-800 text-[16px]">Historial de Carga</h3>
@@ -154,7 +163,6 @@ const App: React.FC = () => {
             <div className="space-y-6 animate-in fade-in slide-in-from-right-8 duration-500">
               <div className="pt-2">
                 <h1 className="text-[24px] font-black text-slate-900 leading-[1.1]">Convertir a Factura</h1>
-                <p className="text-slate-400 text-[13px] mt-2 font-medium">Introduce los datos que se escribirán sobre el PDF original.</p>
               </div>
 
               <div className="bg-slate-50 p-5 rounded-[28px] border border-slate-100 space-y-4">
@@ -163,7 +171,8 @@ const App: React.FC = () => {
                     <input 
                       type="text" 
                       value={selectedBudget.clientName}
-                      onChange={(e) => updateSelectedBudget({ clientName: e.target.value })}
+                      onFocus={() => { if (selectedBudget.clientName === "CLIENTE DETECTADO") updateSelectedBudget({ clientName: "" }); }}
+                      onChange={(e) => updateSelectedBudget({ clientName: e.target.value.toUpperCase() })}
                       className="w-full mt-1 p-3 bg-white border border-slate-100 rounded-xl text-sm font-bold focus:border-blue-400 outline-none"
                     />
                  </div>
@@ -173,6 +182,7 @@ const App: React.FC = () => {
                       <input 
                         type="number" 
                         value={invoiceConfig.number}
+                        onFocus={() => setInvoiceConfig({...invoiceConfig, number: ""})}
                         onChange={(e) => setInvoiceConfig({...invoiceConfig, number: e.target.value})}
                         className="w-full mt-1 p-3 bg-white border border-slate-100 rounded-xl text-sm font-bold focus:border-blue-400 outline-none"
                       />
@@ -198,86 +208,77 @@ const App: React.FC = () => {
                   <FileCheck className="w-4 h-4" /> Modo de Generación
                 </h3>
                 <p className="text-[12px] font-bold text-slate-600 mt-2 leading-relaxed">
-                  Se generará un nuevo PDF usando el presupuesto original como base, tapando la palabra "PRESUPUESTO" y añadiendo los datos arriba indicados.
+                  Se generará un nuevo PDF usando la FACTURA original. revise la factura una vez creada.
                 </p>
               </div>
+
+              <button 
+                onClick={handleGenerate}
+                className="w-full h-16 bg-gradient-to-r from-blue-600 to-blue-400 text-white rounded-[24px] font-black text-[17px] shadow-[0_12px_40px_-10px_rgba(59,130,246,0.6)] hover:brightness-110 active:scale-[0.97] transition-all flex items-center justify-center gap-3 uppercase tracking-wider"
+              >
+                <Save className="w-5 h-5" /> Confirmar Datos
+              </button>
             </div>
           )}
 
           {currentStep === Step.PREVIEW && selectedBudget && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-right-8 duration-500">
-              <div className="bg-emerald-50 text-emerald-600 p-3.5 rounded-[24px] flex items-center justify-center gap-2 text-xs font-black border border-emerald-100">
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Datos Listos para Overlay</span>
+            <div className="space-y-4 animate-in fade-in slide-in-from-right-8 duration-500 pb-6">
+              <div className="bg-emerald-50 text-emerald-600 p-2.5 rounded-[20px] flex items-center justify-center gap-2 text-[11px] font-black border border-emerald-100">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Datos Listos para Descarga</span>
               </div>
 
-              <div className="aspect-[3/4] bg-slate-100 rounded-[40px] shadow-inner relative flex items-center justify-center p-6 overflow-hidden">
-                 <div className="w-full h-full bg-white rounded-xl shadow-2xl flex flex-col p-6 border border-slate-200">
+              <div className="h-32 bg-slate-100 rounded-[32px] shadow-inner relative flex items-center justify-center p-4 overflow-hidden border border-slate-100">
+                 <div className="w-2/3 h-full bg-white rounded-lg shadow-xl flex flex-col p-3 border border-slate-200 opacity-30">
                     <div className="flex justify-between">
-                       <div className="w-16 h-3 bg-blue-500 rounded-full"></div>
+                       <div className="w-10 h-1.5 bg-blue-500 rounded-full"></div>
                        <div className="text-right">
-                          <p className="text-[8px] font-black text-blue-600">FACTURA Nº {invoiceConfig.number}</p>
-                          <p className="text-[6px] text-slate-400">FECHA: {invoiceConfig.date}</p>
+                          <p className="text-[5px] font-black text-blue-600">FACTURA Nº {invoiceConfig.number}</p>
+                          <p className="text-[3px] text-slate-400">{invoiceConfig.date}</p>
                        </div>
                     </div>
-                    <div className="flex-1 flex items-center justify-center opacity-10">
-                       <FileText className="w-24 h-24" />
+                    <div className="flex-1 flex items-center justify-center">
+                       <FileText className="w-8 h-8 text-slate-100" />
                     </div>
                  </div>
-                 <div className="absolute inset-0 bg-slate-900/5 flex items-center justify-center">
-                    <div className="bg-white/90 backdrop-blur p-4 rounded-3xl shadow-xl flex items-center gap-3">
-                       <div className="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center text-white"><FileText /></div>
-                       <div className="text-left">
-                          <p className="text-xs font-black text-slate-900">Modo Overlay Activo</p>
-                          <p className="text-[10px] font-bold text-slate-400 tracking-tight">Presupuesto original intacto</p>
+                 <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="bg-white/95 backdrop-blur-md p-2.5 rounded-[24px] shadow-lg flex items-center gap-2.5 border border-white/50">
+                       <div className="w-8 h-8 bg-blue-600 rounded-xl flex items-center justify-center text-white">
+                          <FileCheck className="w-4 h-4" />
+                       </div>
+                       <div className="text-left pr-1">
+                          <p className="text-[11px] font-black text-slate-900 leading-tight tracking-tight">Modo Final Activo</p>
+                          <p className="text-[9px] font-bold text-slate-400 tracking-tight">Preparado para descargar...</p>
                        </div>
                     </div>
                  </div>
               </div>
 
-              <div className="space-y-4">
-                 <div className="flex justify-between items-center px-2">
-                    <div>
-                       <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Documento Final</p>
-                       <p className="text-xl font-black text-slate-900">{getFullInvoiceCode()}</p>
+              <div className="pt-1">
+                 <div className="flex justify-between items-center px-4 py-3 bg-slate-50 rounded-[24px] border border-slate-100 shadow-sm">
+                    <div className="overflow-hidden">
+                       <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest">Documento Final</p>
+                       <p className="text-[16px] font-black text-slate-900 truncate">{getFullInvoiceCode()}</p>
                     </div>
-                    <span className="bg-blue-50 text-blue-600 text-[10px] font-black px-4 py-1.5 rounded-full uppercase border border-blue-100">LISTO</span>
+                    <span className="bg-emerald-50 text-emerald-600 text-[9px] font-black px-3 py-1 rounded-full uppercase border border-emerald-100 flex-shrink-0">VALIDADO</span>
                  </div>
               </div>
-            </div>
-          )}
-        </div>
 
-        {/* Action Button */}
-        <div className="absolute bottom-8 left-0 right-0 px-6 z-20">
-          {currentStep === Step.UPLOAD && (
-            <button 
-              disabled={!selectedBudget}
-              onClick={startConversion}
-              className="w-full h-16 bg-gradient-to-r from-blue-600 to-blue-400 text-white rounded-[24px] font-black text-[17px] shadow-[0_12px_40px_-10px_rgba(59,130,246,0.6)] disabled:opacity-50 transition-all flex items-center justify-center gap-3 uppercase tracking-wider"
-            >
-              <Edit3 className="w-5 h-5" /> Configurar Overlay
-            </button>
-          )}
-          {currentStep === Step.SETUP && (
-            <button 
-              onClick={handleGenerate}
-              className="w-full h-16 bg-gradient-to-r from-blue-600 to-blue-400 text-white rounded-[24px] font-black text-[17px] shadow-[0_12px_40px_-10px_rgba(59,130,246,0.6)] hover:brightness-110 active:scale-[0.97] transition-all flex items-center justify-center gap-3 uppercase tracking-wider"
-            >
-              <Save className="w-5 h-5" /> Confirmar Datos
-            </button>
-          )}
-          {currentStep === Step.PREVIEW && (
-            <div className="space-y-4">
-              <button 
-                onClick={handleDownload}
-                className="w-full h-16 bg-gradient-to-r from-blue-600 to-blue-400 text-white rounded-[24px] font-black text-[17px] shadow-[0_12px_40px_-10px_rgba(59,130,246,0.6)] hover:brightness-110 active:scale-[0.97] transition-all flex items-center justify-center gap-3 uppercase tracking-wider"
-              >
-                <Download className="w-5 h-5" /> Descargar Factura (Overlay)
-              </button>
-              <button onClick={() => { setSelectedBudget(null); setCurrentStep(Step.UPLOAD); }} className="w-full h-16 bg-slate-900 text-white rounded-[24px] font-black text-[17px] shadow-[0_12px_40px_-10px_rgba(15,23,42,0.4)] hover:bg-slate-800 active:scale-[0.97] transition-all flex items-center justify-center gap-3 uppercase tracking-wider">
-                <Plus className="w-5 h-5" /> Nuevo Presupuesto
-              </button>
+              {/* Botones de acción movidos al flujo para estar alineados arriba */}
+              <div className="space-y-3 pt-2">
+                <button 
+                  onClick={handleDownload}
+                  className="w-full h-14 bg-gradient-to-r from-blue-600 to-blue-400 text-white rounded-[22px] font-black text-[16px] shadow-[0_10px_30px_-8px_rgba(59,130,246,0.6)] hover:brightness-110 active:scale-[0.97] transition-all flex items-center justify-center gap-2.5 uppercase tracking-wider"
+                >
+                  <Download className="w-4.5 h-4.5" /> Descargar Factura
+                </button>
+                <button 
+                  onClick={() => { setSelectedBudget(null); setCurrentStep(Step.UPLOAD); }} 
+                  className="w-full h-14 bg-slate-900 text-white rounded-[22px] font-black text-[16px] shadow-[0_10px_30px_-8px_rgba(15,23,42,0.4)] hover:bg-slate-800 active:scale-[0.97] transition-all flex items-center justify-center gap-2.5 uppercase tracking-wider"
+                >
+                  <Plus className="w-4.5 h-4.5" /> NUEVA FACTURA
+                </button>
+              </div>
             </div>
           )}
         </div>
