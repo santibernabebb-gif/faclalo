@@ -8,24 +8,8 @@ interface PDFTextItem {
   width: number;
 }
 
-function cleanNumber(str: string): number | null {
-  if (!str) return null;
-  let clean = str.replace(/[€\s]/g, '').trim();
-  if (!clean) return null;
-  if (clean.includes(',') && clean.includes('.')) {
-    clean = clean.replace(/\./g, '').replace(',', '.');
-  } else if (clean.includes(',')) {
-    clean = clean.replace(',', '.');
-  }
-  const num = parseFloat(clean);
-  return isNaN(num) ? null : num;
-}
-
 export async function parseBudgetPdf(file: File): Promise<BudgetData> {
-  // Obtenemos el buffer original del archivo
   const arrayBuffer = await file.arrayBuffer();
-  
-  // CLONAMOS el buffer para PDF.js para que no neutralice el original
   const bufferForPdfJs = arrayBuffer.slice(0);
   
   // @ts-ignore
@@ -43,7 +27,6 @@ export async function parseBudgetPdf(file: File): Promise<BudgetData> {
   const textLines = allItems.map(i => i.str).join(' ');
   let detectedClient = "CLIENTE DETECTADO";
   
-  // Intento de captura de nombre tras etiquetas comunes
   const lowerText = textLines.toLowerCase();
   const markers = ["cliente:", "señor/a:", "atn:"];
   
@@ -57,13 +40,13 @@ export async function parseBudgetPdf(file: File): Promise<BudgetData> {
   }
 
   // Búsqueda dinámica de la marca "IMPORTANTE"
-  // Buscamos la coordenada Y de la primera vez que aparece (de arriba a abajo, Y mayor es arriba)
-  // Pero como queremos borrar todo DESDE ahí hacia abajo, buscamos el bloque de texto que la contiene.
   let footerMarkerY: number | undefined = undefined;
   
+  // Agrupamos por líneas aproximadas para detectar "IMPORTANTE" si está roto en varios items
   for (const item of allItems) {
     if (item.str.toUpperCase().includes("IMPORTANTE")) {
-      // Si ya encontramos uno, nos quedamos con el más alto (por si hay varios, para borrar el primero que aparezca)
+      // Queremos el IMPORTANTE que esté más arriba (Y mayor en PDF) 
+      // para borrar todo desde ahí hacia abajo.
       if (footerMarkerY === undefined || item.y > footerMarkerY) {
         footerMarkerY = item.y;
       }
