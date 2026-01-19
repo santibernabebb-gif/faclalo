@@ -51,12 +51,13 @@ export async function generatePdf(
     });
   });
 
-  // 2. BORRADO DINÁMICO: Desde "IMPORTANTE:" hasta el final (Y=0)
-  // Usamos un margen de seguridad de 35 puntos para cubrir la propia palabra y cualquier espacio superior
-  const safetyMargin = 35; 
-  let deleteFromY = budget.footerMarkerY ? (budget.footerMarkerY + safetyMargin) : 180;
+  // 2. BORRADO DINÁMICO: Desde "IMPORTANTE" hasta el final (Y=0)
+  // Se añade un margen de seguridad (30 puntos) para cubrir la palabra y cualquier resquicio
+  const safetyMargin = 30; 
+  let deleteFromY = budget.footerMarkerY ? (budget.footerMarkerY + safetyMargin) : 160;
 
-  // Dibujamos UN SOLO rectángulo blanco opaco que cubra desde la detección hasta el borde inferior (Y=0)
+  // IMPLEMENTACIÓN OBLIGATORIA: Un solo rectángulo blanco opaco 
+  // que cubre desde deleteFromY hasta el borde inferior (y=0)
   firstPage.drawRectangle({
     x: 0,
     y: 0,
@@ -66,7 +67,7 @@ export async function generatePdf(
     opacity: 1
   });
 
-  // 3. Escribir nuevos datos sobre las áreas limpiadas
+  // 3. Escribir nuevos datos (Encima de los tapados superiores, no en el pie)
   const titleText = OVERLAY.texts.titulo.label;
   const titleSize = OVERLAY.texts.titulo.size;
   const titleWidth = fontBold.widthOfTextAtSize(titleText, titleSize);

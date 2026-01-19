@@ -39,14 +39,18 @@ export async function parseBudgetPdf(file: File): Promise<BudgetData> {
     }
   }
 
-  // Búsqueda dinámica de la marca "IMPORTANTE"
+  // Búsqueda dinámica de la marca "IMPORTANTE" siguiendo reglas exactas de normalización
   let footerMarkerY: number | undefined = undefined;
   
-  // Agrupamos por líneas aproximadas para detectar "IMPORTANTE" si está roto en varios items
   for (const item of allItems) {
-    if (item.str.toUpperCase().includes("IMPORTANTE")) {
-      // Queremos el IMPORTANTE que esté más arriba (Y mayor en PDF) 
-      // para borrar todo desde ahí hacia abajo.
+    // Normalización: trim, quitar espacios dobles, pasar a mayúsculas
+    const normalized = item.str.trim().replace(/\s+/g, ' ').toUpperCase();
+    
+    // El usuario pide explícitamente "IMPORTANTE" o "IMPORTANTE:"
+    // También contemplamos si empieza por "IMPORTANTE:" por si el bloque de texto viene unido
+    if (normalized === "IMPORTANTE" || normalized === "IMPORTANTE:" || normalized.startsWith("IMPORTANTE:")) {
+      // Capturamos la coordenada Y (transform[5] en pdf.js es el Y desde abajo)
+      // Buscamos la posición más alta encontrada para asegurar que tapamos todo el bloque
       if (footerMarkerY === undefined || item.y > footerMarkerY) {
         footerMarkerY = item.y;
       }
