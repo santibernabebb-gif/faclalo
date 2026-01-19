@@ -8,6 +8,7 @@ export async function generatePdf(budget: BudgetData, config: InvoiceConfig, inv
   try {
     let pdfDoc;
     let firstPage;
+    let isUsingTemplate = false;
     
     // 1. Intentar cargar la plantilla base
     try {
@@ -18,58 +19,61 @@ export async function generatePdf(budget: BudgetData, config: InvoiceConfig, inv
         const templateBytes = await response.arrayBuffer();
         pdfDoc = await PDFDocument.load(templateBytes);
         firstPage = pdfDoc.getPages()[0];
+        isUsingTemplate = true;
+        console.log("Plantilla cargada con éxito.");
       } else {
         throw new Error("Template not found");
       }
     } catch (e) {
-      // FALLBACK: Si no hay plantilla, creamos un documento A4 desde cero con el diseño oficial
+      // FALLBACK: Si no hay plantilla, creamos un documento A4 desde cero
       console.warn("Plantilla_Factura_BASE.pdf no encontrada. Generando diseño base vectorialmente.");
       pdfDoc = await PDFDocument.create();
       firstPage = pdfDoc.addPage([595.28, 841.89]); // Tamaño A4
+      isUsingTemplate = false;
     }
 
     const { width, height } = firstPage.getSize();
     const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-    // 2. DIBUJAR ENCABEZADO (Solo si es documento nuevo o para asegurar el estilo)
-    // Fondo/Header (Si no existía plantilla)
-    const isNewDoc = pdfDoc.getPages().length === 1 && !firstPage.getContents().length;
-    
-    if (isNewDoc) {
-      // Recreación del logo y cabecera de la imagen
-      // Texto "FACTURA" grande arriba
+    // 2. DIBUJAR ENCABEZADO
+    if (!isUsingTemplate) {
+      // DISEÑO VECTORIAL DESDE CERO (Si no hay archivo PDF base)
+      
+      // Título FACTURA
       firstPage.drawText("FACTURA", {
-        x: 150,
+        x: 50,
         y: height - 60,
-        size: 45,
-        font: fontRegular,
+        size: 40,
+        font: fontBold,
         color: rgb(0.27, 0.45, 0.72),
       });
 
       // Datos Emisor (Izquierda)
       const emisorY = height - 120;
-      firstPage.drawText(EMISOR_DATA.name, { x: 50, y: emisorY, size: 14, font: fontBold });
-      firstPage.drawText(EMISOR_DATA.address + " · " + EMISOR_DATA.city, { x: 50, y: emisorY - 15, size: 10, font: fontRegular });
-      firstPage.drawText(EMISOR_DATA.email, { x: 50, y: emisorY - 30, size: 10, font: fontRegular, color: rgb(0, 0, 1) });
-      firstPage.drawText(EMISOR_DATA.phone + " · NIF: " + EMISOR_DATA.nif, { x: 50, y: emisorY - 45, size: 10, font: fontRegular });
+      firstPage.drawText(EMISOR_DATA.name, { x: 50, y: emisorY, size: 12, font: fontBold });
+      firstPage.drawText(EMISOR_DATA.address, { x: 50, y: emisorY - 15, size: 9, font: fontRegular });
+      firstPage.drawText(EMISOR_DATA.city, { x: 50, y: emisorY - 28, size: 9, font: fontRegular });
+      firstPage.drawText(EMISOR_DATA.email, { x: 50, y: emisorY - 41, size: 9, font: fontRegular, color: rgb(0, 0, 0.8) });
+      firstPage.drawText(`NIF: ${EMISOR_DATA.nif} · Tel: ${EMISOR_DATA.phone}`, { x: 50, y: emisorY - 54, size: 9, font: fontRegular });
 
-      // Logo Cuadro (Derecha)
+      // Logo Estilo LALO (Derecha)
       const logoX = 380;
-      const logoY = height - 160;
+      const logoY = height - 140;
       firstPage.drawRectangle({ x: logoX, y: logoY, width: 160, height: 80, color: rgb(0.12, 0.16, 0.21) });
-      firstPage.drawText("LALO", { x: logoX + 10, y: logoY + 50, size: 20, font: fontBold, color: rgb(1, 1, 1) });
-      firstPage.drawText("QUILIS", { x: logoX + 10, y: logoY + 30, size: 20, font: fontBold, color: rgb(1, 1, 1) });
-      firstPage.drawText("PINTURAS Y DECORACIÓN", { x: logoX + 15, y: logoY + 10, size: 8, font: fontRegular, color: rgb(1, 1, 1) });
+      firstPage.drawText("LALO", { x: logoX + 10, y: logoY + 50, size: 22, font: fontBold, color: rgb(1, 1, 1) });
+      firstPage.drawText("QUILIS", { x: logoX + 10, y: logoY + 28, size: 22, font: fontBold, color: rgb(1, 1, 1) });
+      firstPage.drawText("PINTURAS Y DECORACIÓN", { x: logoX + 12, y: logoY + 10, size: 8, font: fontRegular, color: rgb(1, 1, 1) });
       
       // Colores CMYK del logo
-      firstPage.drawRectangle({ x: logoX + 120, y: logoY + 60, width: 30, height: 15, color: rgb(0, 0.68, 0.94) }); // Cyan
-      firstPage.drawRectangle({ x: logoX + 100, y: logoY + 40, width: 50, height: 20, color: rgb(0.93, 0, 0.55) }); // Magenta
-      firstPage.drawRectangle({ x: logoX + 115, y: logoY + 20, width: 35, height: 20, color: rgb(1, 0.95, 0) }); // Yellow
+      firstPage.drawRectangle({ x: logoX + 120, y: logoY + 60, width: 30, height: 15, color: rgb(0, 0.68, 0.94) });
+      firstPage.drawRectangle({ x: logoX + 105, y: logoY + 40, width: 45, height: 20, color: rgb(0.93, 0, 0.55) });
+      firstPage.drawRectangle({ x: logoX + 115, y: logoY + 20, width: 35, height: 20, color: rgb(1, 0.95, 0) });
     } else {
-      // Si hay plantilla, tapamos "PRESUPUESTO"
+      // SOBRE LA PLANTILLA EXISTENTE: Tapar "PRESUPUESTO" y poner "FACTURA"
+      // Estas coordenadas son genéricas, ajustamos para que cubra bien el título
       firstPage.drawRectangle({
-        x: 300, y: height - 100, width: 250, height: 80,
+        x: 200, y: height - 100, width: 350, height: 80,
         color: rgb(1, 1, 1),
       });
       firstPage.drawText("FACTURA", {
@@ -78,11 +82,11 @@ export async function generatePdf(budget: BudgetData, config: InvoiceConfig, inv
       });
     }
 
-    // 3. DATOS DE LA FACTURA
+    // 3. DATOS DE LA FACTURA (Nº y FECHA)
     const infoY = height - 210;
     firstPage.drawText(`Nº ${invoiceCode}`, { x: 50, y: infoY, size: 12, font: fontBold });
     const fechaFormatted = config.date.split('-').reverse().join('/');
-    firstPage.drawText(`Fecha: ${fechaFormatted}`, { x: width - 150, y: infoY, size: 12, font: fontBold });
+    firstPage.drawText(`Fecha: ${fechaFormatted}`, { x: width - 180, y: infoY, size: 12, font: fontBold });
 
     // Línea separadora
     firstPage.drawLine({
@@ -107,25 +111,22 @@ export async function generatePdf(budget: BudgetData, config: InvoiceConfig, inv
     // Encabezados de tabla
     firstPage.drawRectangle({ x: 50, y: currentY, width: width - 100, height: 20, color: rgb(0.27, 0.45, 0.72) });
     const headerY = currentY + 6;
-    const drawHeader = (t: string, x: number) => firstPage.drawText(t, { x, y: headerY, size: 9, font: fontBold, color: rgb(1,1,1) });
-    drawHeader("DESCRIPCIÓN", itemX + 5);
-    drawHeader("UDS", qtyX);
-    drawHeader("PRECIO", priceX);
-    drawHeader("TOTAL", totalX);
+    firstPage.drawText("DESCRIPCIÓN", { x: itemX + 5, y: headerY, size: 9, font: fontBold, color: rgb(1,1,1) });
+    firstPage.drawText("UDS", { x: qtyX, y: headerY, size: 9, font: fontBold, color: rgb(1,1,1) });
+    firstPage.drawText("PRECIO", { x: priceX, y: headerY, size: 9, font: fontBold, color: rgb(1,1,1) });
+    firstPage.drawText("TOTAL", { x: totalX, y: headerY, size: 9, font: fontBold, color: rgb(1,1,1) });
 
     currentY -= rowHeight;
 
-    budget.lines.slice(0, 22).forEach((line, idx) => {
-      const y = currentY;
-      // Fondo cebra
+    budget.lines.slice(0, 25).forEach((line, idx) => {
       if (idx % 2 !== 0) {
-        firstPage.drawRectangle({ x: 50, y: y - 4, width: width - 100, height: rowHeight, color: rgb(0.97, 0.98, 0.99) });
+        firstPage.drawRectangle({ x: 50, y: currentY - 4, width: width - 100, height: rowHeight, color: rgb(0.97, 0.98, 0.99) });
       }
       
-      firstPage.drawText(line.description.substring(0, 65), { x: itemX + 5, y, size: 9, font: fontRegular });
-      firstPage.drawText(line.units.toString(), { x: qtyX, y, size: 9, font: fontRegular });
-      firstPage.drawText(line.priceUnit.toFixed(2) + "€", { x: priceX, y, size: 9, font: fontRegular });
-      firstPage.drawText(line.total.toFixed(2) + "€", { x: totalX, y, size: 9, font: fontBold });
+      firstPage.drawText(line.description.substring(0, 65), { x: itemX + 5, y: currentY, size: 9, font: fontRegular });
+      firstPage.drawText(line.units.toString(), { x: qtyX, y: currentY, size: 9, font: fontRegular });
+      firstPage.drawText(line.priceUnit.toFixed(2) + "€", { x: priceX, y: currentY, size: 9, font: fontRegular });
+      firstPage.drawText(line.total.toFixed(2) + "€", { x: totalX, y: currentY, size: 9, font: fontBold });
       
       currentY -= rowHeight;
     });
@@ -134,13 +135,13 @@ export async function generatePdf(budget: BudgetData, config: InvoiceConfig, inv
     const totalsY = 120;
     const rightAlignX = width - 50;
     
-    const drawTotalLine = (label: string, value: string, y: number, size = 10, isBold = false) => {
-      firstPage.drawText(label, { x: 400, y, size, font: isBold ? fontBold : fontRegular });
-      firstPage.drawText(value, { x: rightAlignX - fontBold.widthOfTextAtSize(value, size), y, size, font: isBold ? fontBold : fontRegular });
-    };
+    firstPage.drawText("Subtotal:", { x: 400, y: totalsY, size: 10, font: fontRegular });
+    const subStr = budget.subtotal.toFixed(2) + "€";
+    firstPage.drawText(subStr, { x: rightAlignX - fontBold.widthOfTextAtSize(subStr, 10), y: totalsY, size: 10, font: fontBold });
 
-    drawTotalLine("Subtotal:", budget.subtotal.toFixed(2) + "€", totalsY);
-    drawTotalLine("IVA 21%:", budget.iva.toFixed(2) + "€", totalsY - 15);
+    firstPage.drawText("IVA 21%:", { x: 400, y: totalsY - 15, size: 10, font: fontRegular });
+    const ivaStr = budget.iva.toFixed(2) + "€";
+    firstPage.drawText(ivaStr, { x: rightAlignX - fontBold.widthOfTextAtSize(ivaStr, 10), y: totalsY - 15, size: 10, font: fontBold });
     
     firstPage.drawRectangle({ x: 390, y: totalsY - 45, width: 165, height: 25, color: rgb(0.27, 0.45, 0.72) });
     firstPage.drawText("TOTAL FACTURA:", { x: 400, y: totalsY - 38, size: 11, font: fontBold, color: rgb(1,1,1) });
@@ -165,5 +166,5 @@ export async function generatePdf(budget: BudgetData, config: InvoiceConfig, inv
 }
 
 export async function generateDocx(budget: BudgetData, config: InvoiceConfig, invoiceCode: string) {
-    alert("Esta función requiere una plantilla Word en el servidor. Usa la generación de PDF que ya incluye diseño automático.");
+    alert("Función no implementada. Use la generación de PDF.");
 }

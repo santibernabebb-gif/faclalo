@@ -301,7 +301,7 @@ const App: React.FC = () => {
               >
                 <Download className="w-5 h-5" /> Descargar Factura
               </button>
-              <button onClick={() => setCurrentStep(Step.UPLOAD)} className="w-full h-16 bg-slate-900 text-white rounded-[24px] font-black text-[17px] shadow-[0_12px_40px_-10px_rgba(15,23,42,0.4)] hover:bg-slate-800 active:scale-[0.97] transition-all flex items-center justify-center gap-3 uppercase tracking-wider">
+              <button onClick={() => { setSelectedBudget(null); setCurrentStep(Step.UPLOAD); }} className="w-full h-16 bg-slate-900 text-white rounded-[24px] font-black text-[17px] shadow-[0_12px_40px_-10px_rgba(15,23,42,0.4)] hover:bg-slate-800 active:scale-[0.97] transition-all flex items-center justify-center gap-3 uppercase tracking-wider">
                 <Plus className="w-5 h-5" /> Subir Otro
               </button>
             </div>
