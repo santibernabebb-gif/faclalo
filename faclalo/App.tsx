@@ -18,7 +18,10 @@ import {
   Settings,
   ExternalLink,
   Share2,
-  Send
+  Send,
+  RefreshCw,
+  ArrowLeft,
+  Home
 } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { FileUploader } from './components/FileUploader';
@@ -100,7 +103,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Función para compartir/enviar factura a otras apps (WhatsApp, Email, etc.)
   const shareFactura = async () => {
     if (!lastBlobUrl) return;
 
@@ -117,7 +119,6 @@ const App: React.FC = () => {
           text: `Te envío la factura ${getFullInvoiceCode()}`
         });
       } else {
-        // Fallback para escritorio: Abrir en pestaña nueva
         window.open(lastBlobUrl, '_blank');
       }
     } catch (err) {
@@ -126,24 +127,41 @@ const App: React.FC = () => {
     }
   };
 
+  const handleBack = () => {
+    if (currentStep === Step.UPLOAD) {
+      if (selectedBudget) {
+        setSelectedBudget(null);
+      }
+    } else if (currentStep === Step.SETUP) {
+      setCurrentStep(Step.UPLOAD);
+    } else if (currentStep === Step.PREVIEW) {
+      setCurrentStep(Step.SETUP);
+    }
+  };
+
+  const handleReset = () => {
+    setSelectedBudget(null);
+    setCurrentStep(Step.UPLOAD);
+    setShowSuccess(false);
+    setLastBlobUrl(null);
+  };
+
   const updateSelectedBudget = (updates: Partial<BudgetData>) => {
     if (selectedBudget) {
       setSelectedBudget({ ...selectedBudget, ...updates });
     }
   };
 
+  const showBackButton = !(currentStep === Step.UPLOAD && !selectedBudget);
+  const showHomeButton = currentStep === Step.PREVIEW || showSuccess;
+
   return (
     <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4 font-sans text-slate-900">
       <div className="w-full max-w-[420px] bg-white rounded-[40px] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] overflow-hidden border border-slate-100 flex flex-col h-[880px] relative">
         
         {/* Header */}
-        <div className="px-6 pt-8 pb-4 flex items-center justify-between z-10">
+        <div className="px-6 pt-8 pb-4 flex items-center justify-between z-10 items-start">
           <div className="flex items-center gap-3">
-            {currentStep !== Step.UPLOAD && (
-              <button onClick={() => setCurrentStep(currentStep - 1)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-                <ChevronLeft className="w-6 h-6 text-slate-400" />
-              </button>
-            )}
             <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
               <FileText className="w-5 h-5 text-blue-600" />
             </div>
@@ -154,6 +172,29 @@ const App: React.FC = () => {
               </h2>
               <span className="text-[10px] font-bold text-blue-500 tracking-wider">By SantiSystems</span>
             </div>
+          </div>
+
+          {/* Botones de Navegación en la esquina superior derecha */}
+          <div className="flex flex-col items-end gap-2">
+            {showBackButton && (
+              <button 
+                onClick={handleBack}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 rounded-full transition-colors border border-slate-100 group shadow-sm"
+              >
+                <ArrowLeft className="w-3 h-3 text-slate-400 group-hover:text-blue-500 transition-colors" />
+                <span className="text-[9px] font-black text-slate-400 group-hover:text-blue-500 uppercase tracking-widest transition-colors">Volver</span>
+              </button>
+            )}
+            
+            {showHomeButton && (
+              <button 
+                onClick={handleReset}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-full transition-colors group shadow-[0_4px_12px_-2px_rgba(37,99,235,0.3)]"
+              >
+                <Home className="w-3 h-3 text-white transition-colors" />
+                <span className="text-[9px] font-black text-white uppercase tracking-widest transition-colors">Inicio</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -169,31 +210,53 @@ const App: React.FC = () => {
 
           {currentStep === Step.UPLOAD && (
             <div className="space-y-4 animate-in fade-in duration-500">
-              <FileUploader 
-                onProcessingStart={() => setIsProcessing(true)}
-                onProcessingEnd={() => setIsProcessing(false)}
-                onBudgetsDetected={handleBudgetsDetected}
-                onError={setError}
-              />
               
-              <button 
-                disabled={!selectedBudget}
-                onClick={startConversion}
-                className="w-full h-16 bg-gradient-to-r from-blue-600 to-blue-400 text-white rounded-[24px] font-black text-[17px] shadow-[0_12px_40px_-10px_rgba(59,130,246,0.6)] disabled:opacity-50 transition-all flex items-center justify-center gap-3 uppercase tracking-wider"
-              >
-                <Edit3 className="w-5 h-5" /> Configurar Archivo
-              </button>
+              {!selectedBudget ? (
+                <>
+                  <FileUploader 
+                    onProcessingStart={() => setIsProcessing(true)}
+                    onProcessingEnd={() => setIsProcessing(false)}
+                    onBudgetsDetected={handleBudgetsDetected}
+                    onError={setError}
+                  />
+                  <div className="pt-2">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="font-black text-slate-800 text-[16px]">Historial de Carga</h3>
+                    </div>
+                    <BudgetList 
+                      budgets={budgets} 
+                      onSelect={(b) => { setSelectedBudget(b); }}
+                      onDelete={(id) => setBudgets(prev => prev.filter(b => b.id !== id))}
+                    />
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col gap-6 py-10 animate-in zoom-in-95 duration-300">
+                  <div className="bg-blue-50 rounded-[32px] p-8 border border-blue-100 flex flex-col items-center text-center shadow-sm">
+                    <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mb-4 shadow-sm border border-blue-50">
+                      <FileCheck className="w-10 h-10 text-blue-600" />
+                    </div>
+                    <h3 className="text-xl font-black text-slate-900 leading-tight mb-1 uppercase tracking-tight">Archivo Cargado</h3>
+                    <p className="text-sm font-bold text-slate-500 truncate w-full max-w-[240px]">
+                      {selectedBudget.fileName}
+                    </p>
+                    
+                    <button 
+                      onClick={() => setSelectedBudget(null)}
+                      className="mt-6 flex items-center gap-2 text-[11px] font-black text-blue-600 uppercase tracking-widest hover:text-blue-700 transition-colors"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" /> Cambiar Archivo
+                    </button>
+                  </div>
 
-              <div className="pt-2">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-black text-slate-800 text-[16px]">Historial de Carga</h3>
+                  <button 
+                    onClick={startConversion}
+                    className="w-full h-16 bg-gradient-to-r from-blue-600 to-blue-400 text-white rounded-[24px] font-black text-[17px] shadow-[0_12px_40px_-10px_rgba(59,130,246,0.6)] hover:brightness-105 active:scale-95 transition-all flex items-center justify-center gap-3 uppercase tracking-wider"
+                  >
+                    <Edit3 className="w-5 h-5" /> Configurar Archivo
+                  </button>
                 </div>
-                <BudgetList 
-                  budgets={budgets} 
-                  onSelect={(b) => { setSelectedBudget(b); setCurrentStep(Step.SETUP); }}
-                  onDelete={(id) => setBudgets(prev => prev.filter(b => b.id !== id))}
-                />
-              </div>
+              )}
             </div>
           )}
 
@@ -310,7 +373,7 @@ const App: React.FC = () => {
                   <Download className="w-4.5 h-4.5" /> Descargar Factura
                 </button>
                 <button 
-                  onClick={() => { setSelectedBudget(null); setCurrentStep(Step.UPLOAD); }} 
+                  onClick={handleReset} 
                   className="w-full h-14 bg-slate-900 text-white rounded-[22px] font-black text-[16px] shadow-[0_10px_30px_-8px_rgba(15,23,42,0.4)] hover:bg-slate-800 active:scale-[0.97] transition-all flex items-center justify-center gap-2.5 uppercase tracking-wider"
                 >
                   <Plus className="w-4.5 h-4.5" /> NUEVA FACTURA
@@ -343,10 +406,16 @@ const App: React.FC = () => {
                 <Send className="w-4.5 h-4.5" /> Enviar Factura
               </button>
               <button 
-                onClick={() => setShowSuccess(false)}
-                className="w-full h-14 bg-slate-100 text-slate-500 rounded-2xl font-black text-[15px] flex items-center justify-center gap-3 uppercase tracking-wider"
+                onClick={handleReset}
+                className="w-full h-14 bg-emerald-50 text-emerald-600 rounded-2xl font-black text-[15px] flex items-center justify-center gap-3 uppercase tracking-wider border border-emerald-100 shadow-sm"
               >
-                Cerrar
+                <Home className="w-4.5 h-4.5" /> Volver al Inicio
+              </button>
+              <button 
+                onClick={() => setShowSuccess(false)}
+                className="w-full h-10 bg-transparent text-slate-400 rounded-2xl font-black text-[11px] flex items-center justify-center gap-2 uppercase tracking-widest"
+              >
+                Cerrar Ventana
               </button>
             </div>
           </div>
