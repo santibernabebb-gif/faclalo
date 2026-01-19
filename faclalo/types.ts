@@ -15,6 +15,7 @@ export interface BudgetData {
   subtotal: number;
   iva: number;
   total: number;
+  originalBuffer?: ArrayBuffer; // Almacena el PDF original para el modo overlay
   detectedTotals?: {
     subtotal: number;
     iva: number;
