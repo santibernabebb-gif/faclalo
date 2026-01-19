@@ -39,18 +39,17 @@ export async function parseBudgetPdf(file: File): Promise<BudgetData> {
     }
   }
 
-  // Búsqueda dinámica de la marca "IMPORTANTE" siguiendo reglas exactas de normalización
+  // IMPLEMENTACIÓN DINÁMICA: Búsqueda de "IMPORTANTE" con normalización estricta
   let footerMarkerY: number | undefined = undefined;
   
   for (const item of allItems) {
     // Normalización: trim, quitar espacios dobles, pasar a mayúsculas
     const normalized = item.str.trim().replace(/\s+/g, ' ').toUpperCase();
     
-    // El usuario pide explícitamente "IMPORTANTE" o "IMPORTANTE:"
-    // También contemplamos si empieza por "IMPORTANTE:" por si el bloque de texto viene unido
+    // Detección exacta o parcial por bloque unido
     if (normalized === "IMPORTANTE" || normalized === "IMPORTANTE:" || normalized.startsWith("IMPORTANTE:")) {
-      // Capturamos la coordenada Y (transform[5] en pdf.js es el Y desde abajo)
-      // Buscamos la posición más alta encontrada para asegurar que tapamos todo el bloque
+      // En PDF.js transform[5] es la coordenada Y desde el borde inferior (puntos PDF)
+      // Si hay varias coincidencias, nos quedamos con la más alta (Y mayor) para cubrir todo el bloque
       if (footerMarkerY === undefined || item.y > footerMarkerY) {
         footerMarkerY = item.y;
       }

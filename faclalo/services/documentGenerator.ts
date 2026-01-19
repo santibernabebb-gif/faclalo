@@ -39,7 +39,7 @@ export async function generatePdf(
   const firstPage = pages[0];
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-  // 1. Limpieza de cabecera y datos de cliente originales
+  // 1. Limpieza de cabecera y datos de cliente originales (Overlays superiores)
   OVERLAY.covers.forEach(area => {
     firstPage.drawRectangle({
       x: area.x,
@@ -51,23 +51,7 @@ export async function generatePdf(
     });
   });
 
-  // 2. BORRADO DINÁMICO: Desde "IMPORTANTE" hasta el final (Y=0)
-  // Se añade un margen de seguridad (30 puntos) para cubrir la palabra y cualquier resquicio
-  const safetyMargin = 30; 
-  let deleteFromY = budget.footerMarkerY ? (budget.footerMarkerY + safetyMargin) : 160;
-
-  // IMPLEMENTACIÓN OBLIGATORIA: Un solo rectángulo blanco opaco 
-  // que cubre desde deleteFromY hasta el borde inferior (y=0)
-  firstPage.drawRectangle({
-    x: 0,
-    y: 0,
-    width: LAYOUT.width,
-    height: deleteFromY,
-    color: rgb(1, 1, 1),
-    opacity: 1
-  });
-
-  // 3. Escribir nuevos datos (Encima de los tapados superiores, no en el pie)
+  // 2. Escribir nuevos datos de cabecera
   const titleText = OVERLAY.texts.titulo.label;
   const titleSize = OVERLAY.texts.titulo.size;
   const titleWidth = fontBold.widthOfTextAtSize(titleText, titleSize);
@@ -93,6 +77,7 @@ export async function generatePdf(
     color: rgb(0, 0, 0)
   });
 
+  // 3. Escribir código de factura lateral
   firstPage.drawText(invoiceCode, {
     x: OVERLAY.texts.num_lateral.x,
     y: OVERLAY.texts.num_lateral.y,
@@ -101,6 +86,39 @@ export async function generatePdf(
     rotate: degrees(OVERLAY.texts.num_lateral.rotateDeg),
     color: rgb(0, 0, 0)
   });
+
+  // 4. IMPLEMENTACIÓN OBLIGATORIA (AL FINAL): Borrado dinámico del pie de página
+  // Solo se ejecuta si se detectó la palabra clave "IMPORTANTE"
+  const DEBUG_IMPORTANTE = false;
+  if (budget.footerMarkerY !== undefined) {
+    // Margen de seguridad para cubrir el inicio de la palabra y bullets (12-20 pts)
+    const safetyMargin = 18; 
+    const y_pdfLib = budget.footerMarkerY;
+    const coverHeight = y_pdfLib + safetyMargin;
+
+    // Dibuja UN SOLO rectángulo blanco opaco que tape desde el borde inferior (Y=0) hasta el marcador
+    firstPage.drawRectangle({
+      x: 0,
+      y: 0,
+      width: LAYOUT.width,
+      height: coverHeight,
+      color: rgb(1, 1, 1),
+      opacity: 1
+    });
+
+    if (DEBUG_IMPORTANTE) {
+      firstPage.drawLine({
+        start: { x: 0, y: y_pdfLib },
+        end: { x: LAYOUT.width, y: y_pdfLib },
+        thickness: 1,
+        color: rgb(1, 0, 0),
+      });
+    }
+  } else {
+    // Si no se detecta la palabra, no se aplica el borrado dinámico agresivo 
+    // para evitar tapar contenido útil por error.
+    console.warn("Palabra 'IMPORTANTE' no detectada. Se omite el borrado dinámico del pie.");
+  }
 
   const pdfBytes = await pdfDoc.save();
   const blob = new Blob([pdfBytes], { type: 'application/pdf' });
