@@ -13,30 +13,29 @@ const LAYOUT = {
 
 // LÍMITES ESTRICTOS (Guardrails)
 const LIMITS = {
-  LOGO_LEFT_X: 415,    // No pasar de aquí a la derecha para no tocar el logo
-  Y_NAME_LIMIT: 772    // No bajar de aquí para no cortar "Eduardo Quilis Llorens"
+  LOGO_LEFT_X: 418,    // Límite derecho para no tocar el logo "QUILIS"
+  Y_NAME_LIMIT: 780    // Límite inferior para no cortar "Eduardo Quilis Llorens"
 };
 
 const OVERLAY = {
   // 1. Zonas de Tapado (Rectángulos Blancos 100% Opacos)
   // Se dibujan ANTES que cualquier texto nuevo
   covers: [
-    // CABECERA: Tapados quirúrgicos
-    { name: "top_strip",  x: 30,  y: 830, w: 380, h: 10 },  // Elimina restos azules en el borde superior
-    { name: "top_main",   x: 30,  y: 772, w: 380, h: 58 },  // Área donde estaba "PRESUPUESTO"
+    // CABECERA: Tapado "alargado" ajustado justo bajo las letras de FACTURA
+    { name: "top_header_cleaner", x: 10, y: 792, w: 405, h: 50 }, 
     
-    // CUERPO: Tapado zona Cliente/Fecha original del presupuesto
+    // CUERPO: Tapado zona Cliente/Fecha original
     { name: "info_wipe",  x: 40,  y: 615, w: 515, h: 50 },  
     
-    // PIE: Limpieza total de la zona inferior
-    { name: "footer_wipe", x: 0,   y: 0,   w: 595, h: 70 }, 
+    // PIE: Limpieza total de la zona inferior (otro "PRESUPUESTO" grande)
+    { name: "footer_wipe", x: 0,   y: 0,   w: 595, h: 80 }, 
   ],
   
   // 2. Posiciones de Texto Final
   texts: {
-    titulo: { y: 798, size: 36, label: "FACTURA" },              // Movido más arriba para limpieza
+    titulo: { y: 802, size: 38, label: "FACTURA" },              // Centrado y elevado para limpieza
     sub_datos: { y: 635, size: 11 },                             // Cliente y Fecha unificados
-    num_lateral: { x: 48, y: 550, size: 13, rotateDeg: 90 }      // Código factura
+    num_lateral: { x: 48, y: 550, size: 13, rotateDeg: 90 }      // Código factura lateral
   }
 };
 
@@ -76,16 +75,12 @@ export async function generatePdf(
 
       // APLICAR GUARDRAILS A LOS TAPADOS DEL HEADER
       if (area.name.startsWith("top")) {
-        // Guardrail X (Logo)
+        // Guardrail X: No invadir el Logo
         if (finalX + finalW > LIMITS.LOGO_LEFT_X) {
           finalW = Math.max(0, LIMITS.LOGO_LEFT_X - finalX);
         }
-        // Guardrail Y (Nombre Eduardo Quilis)
-        if (finalY < LIMITS.Y_NAME_LIMIT) {
-          const overlap = LIMITS.Y_NAME_LIMIT - finalY;
-          finalH = Math.max(0, finalH - overlap);
-          finalY = LIMITS.Y_NAME_LIMIT;
-        }
+        // Guardrail Y: No bajar hacia el nombre (opcional, el usuario pidió "justo bajo letras")
+        // No aplicamos recorte inferior aquí porque el usuario pidió explícitamente y:792
       }
 
       firstPage.drawRectangle({
@@ -109,18 +104,12 @@ export async function generatePdf(
           end: { x: LIMITS.LOGO_LEFT_X, y: 842 },
           thickness: 1, color: rgb(0, 0.8, 0)
         });
-        // Azul: Límite del Nombre
-        firstPage.drawLine({
-          start: { x: 0, y: LIMITS.Y_NAME_LIMIT },
-          end: { x: LIMITS.LOGO_LEFT_X, y: LIMITS.Y_NAME_LIMIT },
-          thickness: 1, color: rgb(0, 0, 1)
-        });
       }
     });
 
     // --- PASO 2: ESCRIBIR TEXTOS NUEVOS ENCIMA DE LOS TAPADOS ---
     
-    // A. Título "FACTURA" (Centrado horizontal)
+    // A. Título "FACTURA" (Centrado horizontal sobre el total de la página)
     const titleText = OVERLAY.texts.titulo.label;
     const titleSize = OVERLAY.texts.titulo.size;
     const titleWidth = fontBold.widthOfTextAtSize(titleText, titleSize);
@@ -151,7 +140,7 @@ export async function generatePdf(
       color: rgb(0, 0, 0)
     });
 
-    // C. Código de Factura Lateral
+    // C. Código de Factura Lateral (Vertical)
     firstPage.drawText(invoiceCode, {
       x: OVERLAY.texts.num_lateral.x,
       y: OVERLAY.texts.num_lateral.y,
