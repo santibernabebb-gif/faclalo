@@ -39,20 +39,61 @@ export async function parseBudgetPdf(file: File): Promise<BudgetData> {
     }
   }
 
-  // IMPLEMENTACIÓN DINÁMICA: Búsqueda de "IMPORTANTE" con normalización estricta
+  // DETECCIÓN ROBUSTA DE "IMPORTANTE"
+  // 1. Ordenamos items por posición visual: de arriba a abajo (Y desc) y de izquierda a derecha (X asc)
+  const sortedItems = [...allItems].sort((a, b) => {
+    // Tolerancia de 2 puntos para considerar que están en la misma línea
+    if (Math.abs(a.y - b.y) > 2) return b.y - a.y;
+    return a.x - b.x;
+  });
+
   let footerMarkerY: number | undefined = undefined;
-  
-  for (const item of allItems) {
-    // Normalización: trim, quitar espacios dobles, pasar a mayúsculas
-    const normalized = item.str.trim().replace(/\s+/g, ' ').toUpperCase();
-    
-    // Detección exacta o parcial por bloque unido
-    if (normalized === "IMPORTANTE" || normalized === "IMPORTANTE:" || normalized.startsWith("IMPORTANTE:")) {
-      // En PDF.js transform[5] es la coordenada Y desde el borde inferior (puntos PDF)
-      // Si hay varias coincidencias, nos quedamos con la más alta (Y mayor) para cubrir todo el bloque
-      if (footerMarkerY === undefined || item.y > footerMarkerY) {
-        footerMarkerY = item.y;
+  let currentRunText = "";
+  let currentRunY = -1;
+  let lastXEnd = -1;
+
+  // 2. Agrupamos items en "runs" (cadenas de texto lógicas) basados en proximidad para manejar textos partidos
+  for (const item of sortedItems) {
+    const isSameLine = currentRunY === -1 || Math.abs(item.y - currentRunY) < 2;
+    // Tolerancia de 5 puntos para considerar que los items son parte de la misma palabra/bloque
+    const isCloseX = lastXEnd === -1 || (item.x - lastXEnd) < 5;
+
+    if (isSameLine && isCloseX) {
+      currentRunText += item.str;
+      lastXEnd = item.x + item.width;
+      if (currentRunY === -1) currentRunY = item.y;
+    } else {
+      // Procesar el run completado antes de iniciar el siguiente
+      if (currentRunText) {
+        const normalized = currentRunText.trim()
+          .replace(/\u00A0/g, ' ')      // Normalizar Espacios No Rompibles (NBSP)
+          .replace(/\s+/g, ' ')         // Eliminar espacios duplicados
+          .toUpperCase()
+          .replace(/[^A-Z0-9]+$/, '');  // Eliminar caracteres no alfanuméricos finales (como el ':')
+
+        if (normalized.includes("IMPORTANTE")) {
+          footerMarkerY = currentRunY;
+          break; // Detener búsqueda al encontrar la marca
+        }
       }
+
+      // Reiniciar para el siguiente item/run
+      currentRunText = item.str;
+      currentRunY = item.y;
+      lastXEnd = item.x + item.width;
+    }
+  }
+
+  // Comprobación final por si el match estaba en el último run procesado
+  if (footerMarkerY === undefined && currentRunText) {
+    const normalized = currentRunText.trim()
+      .replace(/\u00A0/g, ' ')
+      .replace(/\s+/g, ' ')
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+$/, '');
+
+    if (normalized.includes("IMPORTANTE")) {
+      footerMarkerY = currentRunY;
     }
   }
 
