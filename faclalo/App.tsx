@@ -16,7 +16,8 @@ import {
   FileCheck,
   XCircle,
   Settings,
-  ExternalLink
+  ExternalLink,
+  Share2
 } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { FileUploader } from './components/FileUploader';
@@ -56,7 +57,6 @@ const App: React.FC = () => {
       const monthIndex = dateObj.getMonth();
       const monthAbrev = MONTHS_ABREV_ES[monthIndex];
       const year = dateObj.getFullYear().toString().slice(-2);
-      // Orden: Fecha primero, luego FACTURA y número
       return `${monthAbrev}-${year} FACTURA ${invoiceConfig.number}`;
     } catch (e) {
       return `???-26 FACTURA ${invoiceConfig.number}`;
@@ -74,7 +74,6 @@ const App: React.FC = () => {
   const handleGenerate = async () => {
     if (!selectedBudget) return;
     setIsProcessing(true);
-    // Simular un poco de proceso para feedback visual
     setTimeout(() => {
       setCurrentStep(Step.PREVIEW);
       setIsProcessing(false);
@@ -100,8 +99,30 @@ const App: React.FC = () => {
     }
   };
 
-  const openFactura = () => {
-    if (lastBlobUrl) {
+  // Función mejorada para abrir con aplicaciones externas en móviles
+  const openFactura = async () => {
+    if (!lastBlobUrl) return;
+
+    try {
+      // Intentamos usar el API de compartir de la web (disponible en móviles)
+      const response = await fetch(lastBlobUrl);
+      const blob = await response.blob();
+      const fileName = `Factura_${invoiceConfig.number}.pdf`;
+      const file = new File([blob], fileName, { type: 'application/pdf' });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'Abrir Factura',
+          text: 'Selecciona una aplicación para abrir tu factura'
+        });
+      } else {
+        // Fallback para navegadores que no soportan share (Desktop)
+        window.open(lastBlobUrl, '_blank');
+      }
+    } catch (err) {
+      console.error("Error al intentar compartir/abrir:", err);
+      // Fallback de emergencia
       window.open(lastBlobUrl, '_blank');
     }
   };
@@ -113,7 +134,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4 font-sans">
+    <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4 font-sans text-slate-900">
       <div className="w-full max-w-[420px] bg-white rounded-[40px] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] overflow-hidden border border-slate-100 flex flex-col h-[880px] relative">
         
         {/* Header */}
@@ -128,7 +149,7 @@ const App: React.FC = () => {
               <FileText className="w-5 h-5 text-blue-600" />
             </div>
             <div className="flex flex-col">
-              <h2 className="text-[17px] font-black text-slate-800 uppercase tracking-tight leading-tight">
+              <h2 className="text-[17px] font-black uppercase tracking-tight leading-tight">
                 {currentStep === Step.UPLOAD ? "APP-FACTURAS" : 
                  currentStep === Step.SETUP ? "Revisar Datos" : "Vista Previa"}
               </h2>
@@ -180,7 +201,7 @@ const App: React.FC = () => {
           {currentStep === Step.SETUP && selectedBudget && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-8 duration-500">
               <div className="pt-2">
-                <h1 className="text-[24px] font-black text-slate-900 leading-[1.1]">Convertir a Factura</h1>
+                <h1 className="text-[24px] font-black leading-[1.1]">Convertir a Factura</h1>
               </div>
 
               <div className="bg-slate-50 p-5 rounded-[28px] border border-slate-100 space-y-4">
@@ -217,7 +238,7 @@ const App: React.FC = () => {
                  </div>
                  <div className="pt-2">
                     <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest ml-1">Vista del Código</p>
-                    <p className="text-lg font-black text-slate-900">{getFullInvoiceCode()}</p>
+                    <p className="text-lg font-black">{getFullInvoiceCode()}</p>
                  </div>
               </div>
 
@@ -265,7 +286,7 @@ const App: React.FC = () => {
                           <FileCheck className="w-4 h-4" />
                        </div>
                        <div className="text-left pr-1">
-                          <p className="text-[11px] font-black text-slate-900 leading-tight tracking-tight">Modo Final Activo</p>
+                          <p className="text-[11px] font-black leading-tight tracking-tight">Modo Final Activo</p>
                           <p className="text-[9px] font-bold text-slate-400 tracking-tight">Preparado para descargar...</p>
                        </div>
                     </div>
@@ -276,7 +297,7 @@ const App: React.FC = () => {
                  <div className="flex justify-between items-center px-4 py-3 bg-slate-50 rounded-[24px] border border-slate-100 shadow-sm">
                     <div className="overflow-hidden">
                        <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest">Documento Final</p>
-                       <p className="text-[16px] font-black text-slate-900 truncate">{getFullInvoiceCode()}</p>
+                       <p className="text-[16px] font-black truncate">{getFullInvoiceCode()}</p>
                     </div>
                     <span className="bg-emerald-50 text-emerald-600 text-[9px] font-black px-3 py-1 rounded-full uppercase border border-emerald-100 flex-shrink-0">VALIDADO</span>
                  </div>
@@ -309,24 +330,24 @@ const App: React.FC = () => {
             <div className="w-20 h-20 bg-emerald-100 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-inner">
                <CheckCircle2 className="w-10 h-10 text-emerald-600" />
             </div>
-            <h3 className="text-[22px] font-black text-slate-900 mb-2 leading-tight uppercase tracking-tight">
+            <h3 className="text-[22px] font-black mb-2 leading-tight uppercase tracking-tight">
               Factura Descargada
             </h3>
             <p className="text-slate-500 text-sm font-bold mb-8">
-              El archivo se ha generado correctamente y está listo para ser revisado.
+              El archivo se ha generado correctamente y está listo para ser revisado en tu visor externo.
             </p>
             <div className="space-y-3">
               <button 
                 onClick={openFactura}
                 className="w-full h-14 bg-blue-600 text-white rounded-2xl font-black text-[15px] flex items-center justify-center gap-3 uppercase tracking-wider shadow-lg shadow-blue-200"
               >
-                <ExternalLink className="w-4.5 h-4.5" /> Abrir Factura
+                <Share2 className="w-4.5 h-4.5" /> Abrir con Adobe
               </button>
               <button 
                 onClick={() => setShowSuccess(false)}
                 className="w-full h-14 bg-slate-100 text-slate-500 rounded-2xl font-black text-[15px] flex items-center justify-center gap-3 uppercase tracking-wider"
               >
-                Entendido
+                Cerrar
               </button>
             </div>
           </div>
