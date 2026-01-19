@@ -17,7 +17,8 @@ import {
   XCircle,
   Settings,
   ExternalLink,
-  Share2
+  Share2,
+  Send
 } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { FileUploader } from './components/FileUploader';
@@ -99,12 +100,11 @@ const App: React.FC = () => {
     }
   };
 
-  // Función mejorada para abrir con aplicaciones externas en móviles
-  const openFactura = async () => {
+  // Función para compartir/enviar factura a otras apps (WhatsApp, Email, etc.)
+  const shareFactura = async () => {
     if (!lastBlobUrl) return;
 
     try {
-      // Intentamos usar el API de compartir de la web (disponible en móviles)
       const response = await fetch(lastBlobUrl);
       const blob = await response.blob();
       const fileName = `Factura_${invoiceConfig.number}.pdf`;
@@ -113,16 +113,15 @@ const App: React.FC = () => {
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           files: [file],
-          title: 'Abrir Factura',
-          text: 'Selecciona una aplicación para abrir tu factura'
+          title: `Factura ${invoiceConfig.number}`,
+          text: `Te envío la factura ${getFullInvoiceCode()}`
         });
       } else {
-        // Fallback para navegadores que no soportan share (Desktop)
+        // Fallback para escritorio: Abrir en pestaña nueva
         window.open(lastBlobUrl, '_blank');
       }
     } catch (err) {
-      console.error("Error al intentar compartir/abrir:", err);
-      // Fallback de emergencia
+      console.error("Error al intentar compartir:", err);
       window.open(lastBlobUrl, '_blank');
     }
   };
@@ -331,17 +330,17 @@ const App: React.FC = () => {
                <CheckCircle2 className="w-10 h-10 text-emerald-600" />
             </div>
             <h3 className="text-[22px] font-black mb-2 leading-tight uppercase tracking-tight">
-              Factura Descargada
+              Factura Lista
             </h3>
             <p className="text-slate-500 text-sm font-bold mb-8">
-              El archivo se ha generado correctamente y está listo para ser revisado en tu visor externo.
+              El archivo se ha generado. Ahora puedes enviarlo por WhatsApp o compartirlo con otras apps.
             </p>
             <div className="space-y-3">
               <button 
-                onClick={openFactura}
+                onClick={shareFactura}
                 className="w-full h-14 bg-blue-600 text-white rounded-2xl font-black text-[15px] flex items-center justify-center gap-3 uppercase tracking-wider shadow-lg shadow-blue-200"
               >
-                <Share2 className="w-4.5 h-4.5" /> Abrir con Adobe
+                <Send className="w-4.5 h-4.5" /> Enviar Factura
               </button>
               <button 
                 onClick={() => setShowSuccess(false)}
