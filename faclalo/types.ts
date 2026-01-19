@@ -22,6 +22,7 @@ export interface BudgetData {
     total: number;
   };
   footerMarkerY?: number; // Coordenada Y de la palabra 'IMPORTANTE'
+  ivaMarkerY?: number;    // Coordenada Y del bloque "IVA 21%" (para proteger el recorte)
 }
 
 export interface InvoiceConfig {

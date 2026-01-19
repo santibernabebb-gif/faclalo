@@ -48,6 +48,7 @@ export async function parseBudgetPdf(file: File): Promise<BudgetData> {
   });
 
   let footerMarkerY: number | undefined = undefined;
+  let ivaMarkerY: number | undefined = undefined;
   let currentRunText = "";
   let currentRunY = -1;
   let lastXEnd = -1;
@@ -71,6 +72,11 @@ export async function parseBudgetPdf(file: File): Promise<BudgetData> {
           .toUpperCase()
           .replace(/[^A-Z0-9]+$/, '');  // Eliminar caracteres no alfanuméricos finales (como el ':')
 
+        // Guardar la posición de IVA 21% (si aparece) para proteger el recorte.
+        if (ivaMarkerY === undefined && normalized.includes("IVA") && normalized.includes("21")) {
+          ivaMarkerY = currentRunY;
+        }
+
         if (normalized.includes("IMPORTANTE")) {
           footerMarkerY = currentRunY;
           break; // Detener búsqueda al encontrar la marca
@@ -92,6 +98,10 @@ export async function parseBudgetPdf(file: File): Promise<BudgetData> {
       .toUpperCase()
       .replace(/[^A-Z0-9]+$/, '');
 
+    if (ivaMarkerY === undefined && normalized.includes("IVA") && normalized.includes("21")) {
+      ivaMarkerY = currentRunY;
+    }
+
     if (normalized.includes("IMPORTANTE")) {
       footerMarkerY = currentRunY;
     }
@@ -107,6 +117,7 @@ export async function parseBudgetPdf(file: File): Promise<BudgetData> {
     iva: 0,
     total: 0,
     originalBuffer: arrayBuffer,
-    footerMarkerY
+    footerMarkerY,
+    ivaMarkerY
   };
 }

@@ -90,10 +90,31 @@ export async function generatePdf(
   // Eliminamos visualmente todo desde la marca 'IMPORTANTE' hacia abajo mediante CropBox.
   const DEBUG_CROP = false;
   if (budget.footerMarkerY !== undefined) {
-    // Revertido a un margen más conservador para evitar desbordar el alto de página
-    const EXTRA_BOTTOM_MARGIN = 65; 
+    // Margen pequeño: el corte debe quedar ENTRE el bloque de totales (arriba) y "IMPORTANTE" (abajo).
+    // Si el margen es grande, puede comerse IVA/TOTAL; si es muy pequeño, deja poco aire.
+    const EXTRA_BOTTOM_MARGIN = 18;
+
     const yImportantePdfLib = budget.footerMarkerY;
-    const yCut = yImportantePdfLib + EXTRA_BOTTOM_MARGIN;
+    let yCut = yImportantePdfLib + EXTRA_BOTTOM_MARGIN;
+
+    // Protección: nunca cortar por encima del texto "IVA 21%" (si lo detectamos).
+    // El CropBox muestra desde yCut hacia arriba; si yCut >= ivaY, el bloque de IVA/TOTAL desaparece.
+    if (budget.ivaMarkerY !== undefined) {
+      const ivaY = budget.ivaMarkerY;
+      const SAFE_GAP = 14;
+      const maxAllowedCut = ivaY - SAFE_GAP;
+      if (yCut >= maxAllowedCut) {
+        // Preferimos preservar IVA/TOTAL: el corte NUNCA debe subir por encima del bloque de IVA.
+        yCut = Math.min(yCut, maxAllowedCut);
+        // Asegurar que seguimos tapando "IMPORTANTE" (mínimo 2pt por encima de su Y)
+        if (yCut <= yImportantePdfLib + 2) yCut = yImportantePdfLib + 2;
+        // Si aun así nos pasamos, forzamos a quedar justo por debajo del límite seguro.
+        if (yCut >= maxAllowedCut) yCut = maxAllowedCut - 1;
+      }
+    }
+
+    // Clamp básico al rango de página
+    yCut = Math.max(0, Math.min(LAYOUT.height - 1, yCut));
     
     // Establecemos el Crop Box: definimos el área visible (desde yCut hasta el tope)
     const newHeight = LAYOUT.height - yCut;
