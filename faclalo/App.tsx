@@ -1,6 +1,20 @@
 
-import React, { useState, useEffect } from 'react';
-import { ChevronLeft, Loader2, AlertCircle, CheckCircle2, FileText, Download, Share2, Mail, MessageSquare, History, MoreHorizontal, User, Edit3, Save } from 'lucide-react';
+import React, { useState } from 'react';
+import { 
+  ChevronLeft, 
+  Loader2, 
+  AlertCircle, 
+  CheckCircle2, 
+  FileText, 
+  Download, 
+  History, 
+  Edit3, 
+  Save, 
+  Plus, 
+  Mail, 
+  MessageSquare, 
+  MoreHorizontal 
+} from 'lucide-react';
 import { FileUploader } from './components/FileUploader';
 import { BudgetList } from './components/BudgetList';
 import { BudgetData, MONTHS_ABREV_ES } from './types';
@@ -31,10 +45,14 @@ const App: React.FC = () => {
   };
 
   const getFullInvoiceCode = () => {
-    const dateObj = new Date(invoiceConfig.date);
-    const monthIndex = dateObj.getMonth();
-    const monthAbrev = MONTHS_ABREV_ES[monthIndex];
-    return `FACTURA ${invoiceConfig.number} ${monthAbrev}-26`;
+    try {
+      const dateObj = new Date(invoiceConfig.date);
+      const monthIndex = dateObj.getMonth();
+      const monthAbrev = MONTHS_ABREV_ES[monthIndex];
+      return `FACTURA ${invoiceConfig.number} ${monthAbrev}-26`;
+    } catch (e) {
+      return `FACTURA ${invoiceConfig.number} ???-26`;
+    }
   };
 
   const startConversion = () => {
@@ -49,7 +67,6 @@ const App: React.FC = () => {
     if (!selectedBudget) return;
     setIsProcessing(true);
     try {
-      // Simular un pequeño procesamiento para feedback visual
       setTimeout(() => {
         setCurrentStep(Step.PREVIEW);
         setIsProcessing(false);
@@ -237,8 +254,8 @@ const App: React.FC = () => {
                     <div className="bg-white/90 backdrop-blur p-4 rounded-3xl shadow-xl flex items-center gap-3">
                        <div className="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center text-white"><FileText /></div>
                        <div className="text-left">
-                          <p className="text-xs font-black text-slate-900">Plantilla Aplicada</p>
-                          <p className="text-[10px] font-bold text-slate-400 tracking-tight">Fondo: BASE_PDF</p>
+                          <p className="text-xs font-black text-slate-900">Diseño Aplicado</p>
+                          <p className="text-[10px] font-bold text-slate-400 tracking-tight">Vectores Oficiales LALO</p>
                        </div>
                     </div>
                  </div>
@@ -308,8 +325,5 @@ const App: React.FC = () => {
     </div>
   );
 };
-
-// Icon Plus not imported
-import { Plus } from 'lucide-react';
 
 export default App;
