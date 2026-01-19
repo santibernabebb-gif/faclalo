@@ -44,17 +44,15 @@ export async function generatePdf(
   config: InvoiceConfig, 
   invoiceCode: string,
   _unused?: ArrayBuffer
-) {
+): Promise<string> {
   const PDFLib = (window as any).PDFLib;
   if (!PDFLib) {
-    alert("Error: PDF-Lib no cargada.");
-    return;
+    throw new Error("PDF-Lib no cargada.");
   }
   const { PDFDocument, rgb, StandardFonts, degrees } = PDFLib;
 
   if (!budget.originalBuffer || budget.originalBuffer.byteLength === 0) {
-    alert("Error: No hay buffer del PDF original.");
-    return;
+    throw new Error("No hay buffer del PDF original.");
   }
 
   try {
@@ -91,23 +89,16 @@ export async function generatePdf(
       });
 
       if (DEBUG_GUIDES) {
-        // Rojo: El tapado aplicado
         firstPage.drawRectangle({
           x: finalX, y: finalY, width: finalW, height: finalH,
           borderColor: rgb(1, 0, 0), borderWidth: 0.5
-        });
-        // Verde: Límite del Logo
-        firstPage.drawLine({
-          start: { x: LIMITS.LOGO_LEFT_X, y: 750 },
-          end: { x: LIMITS.LOGO_LEFT_X, y: 842 },
-          thickness: 1, color: rgb(0, 0.8, 0)
         });
       }
     });
 
     // --- PASO 2: ESCRIBIR TEXTOS NUEVOS ENCIMA DE LOS TAPADOS ---
     
-    // A. Título "FACTURA" (Centrado horizontal sobre el total de la página)
+    // A. Título "FACTURA"
     const titleText = OVERLAY.texts.titulo.label;
     const titleSize = OVERLAY.texts.titulo.size;
     const titleWidth = fontBold.widthOfTextAtSize(titleText, titleSize);
@@ -121,7 +112,7 @@ export async function generatePdf(
       color: rgb(LAYOUT.blueColor.r, LAYOUT.blueColor.g, LAYOUT.blueColor.b)
     });
 
-    // B. Bloque "CLIENTE" + "FECHA" (Línea centrada unificada)
+    // B. Bloque "CLIENTE" + "FECHA"
     const dateFormatted = config.date.split('-').reverse().join('/');
     const cleanClient = (budget.clientName || "CLIENTE").toUpperCase();
     const fullInfoLine = `CLIENTE: ${cleanClient}      |      FECHA: ${dateFormatted}`;
@@ -138,7 +129,7 @@ export async function generatePdf(
       color: rgb(0, 0, 0)
     });
 
-    // C. Código de Factura Lateral (Vertical)
+    // C. Código de Factura Lateral
     firstPage.drawText(invoiceCode, {
       x: OVERLAY.texts.num_lateral.x,
       y: OVERLAY.texts.num_lateral.y,
@@ -151,20 +142,23 @@ export async function generatePdf(
     // --- PASO 3: FINALIZAR DOCUMENTO ---
     const pdfBytes = await pdfDoc.save();
     const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
+    const blobUrl = URL.createObjectURL(blob);
     
     const dateObj = new Date(config.date);
     const monthStr = MONTHS_ABREV_ES[dateObj.getMonth()];
     const yearStr = dateObj.getFullYear().toString().slice(-2);
     const fileName = `FACTURA_${config.number}_${monthStr}-${yearStr}.pdf`;
     
+    const link = document.createElement('a');
+    link.href = blobUrl;
     link.download = fileName;
     link.click();
 
+    return blobUrl;
+
   } catch (error) {
     console.error("Error en generación PDF:", error);
-    alert(`Error: ${error instanceof Error ? error.message : 'Error al procesar el overlay'}`);
+    throw error;
   }
 }
 

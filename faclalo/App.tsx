@@ -15,7 +15,8 @@ import {
   MoreHorizontal,
   FileCheck,
   XCircle,
-  Settings
+  Settings,
+  ExternalLink
 } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { FileUploader } from './components/FileUploader';
@@ -35,6 +36,8 @@ const App: React.FC = () => {
   const [selectedBudget, setSelectedBudget] = useState<BudgetData | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [lastBlobUrl, setLastBlobUrl] = useState<string | null>(null);
   const [invoiceConfig, setInvoiceConfig] = useState({
     number: "1",
     date: new Date().toISOString().split('T')[0]
@@ -80,12 +83,27 @@ const App: React.FC = () => {
 
   const handleDownload = async () => {
     if (!selectedBudget) return;
-    const fullCode = getFullInvoiceCode();
-    await generatePdf(
-      selectedBudget, 
-      { number: invoiceConfig.number, date: invoiceConfig.date }, 
-      fullCode
-    );
+    setIsProcessing(true);
+    try {
+      const fullCode = getFullInvoiceCode();
+      const blobUrl = await generatePdf(
+        selectedBudget, 
+        { number: invoiceConfig.number, date: invoiceConfig.date }, 
+        fullCode
+      );
+      setLastBlobUrl(blobUrl);
+      setShowSuccess(true);
+    } catch (err) {
+      setError("Error al descargar la factura.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const openFactura = () => {
+    if (lastBlobUrl) {
+      window.open(lastBlobUrl, '_blank');
+    }
   };
 
   const updateSelectedBudget = (updates: Partial<BudgetData>) => {
@@ -264,7 +282,6 @@ const App: React.FC = () => {
                  </div>
               </div>
 
-              {/* Botones de acción movidos al flujo para estar alineados arriba */}
               <div className="space-y-3 pt-2">
                 <button 
                   onClick={handleDownload}
@@ -283,6 +300,38 @@ const App: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Success Modal */}
+      {showSuccess && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowSuccess(false)}></div>
+          <div className="bg-white w-full max-w-[340px] rounded-[36px] p-8 shadow-2xl relative animate-in zoom-in-95 duration-300 text-center">
+            <div className="w-20 h-20 bg-emerald-100 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-inner">
+               <CheckCircle2 className="w-10 h-10 text-emerald-600" />
+            </div>
+            <h3 className="text-[22px] font-black text-slate-900 mb-2 leading-tight uppercase tracking-tight">
+              Factura Descargada
+            </h3>
+            <p className="text-slate-500 text-sm font-bold mb-8">
+              El archivo se ha generado correctamente y está listo para ser revisado.
+            </p>
+            <div className="space-y-3">
+              <button 
+                onClick={openFactura}
+                className="w-full h-14 bg-blue-600 text-white rounded-2xl font-black text-[15px] flex items-center justify-center gap-3 uppercase tracking-wider shadow-lg shadow-blue-200"
+              >
+                <ExternalLink className="w-4.5 h-4.5" /> Abrir Factura
+              </button>
+              <button 
+                onClick={() => setShowSuccess(false)}
+                className="w-full h-14 bg-slate-100 text-slate-500 rounded-2xl font-black text-[15px] flex items-center justify-center gap-3 uppercase tracking-wider"
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Loading Overlay */}
       {isProcessing && (
