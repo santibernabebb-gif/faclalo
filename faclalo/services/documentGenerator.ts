@@ -91,22 +91,28 @@ export async function generatePdf(
   // Eliminamos visualmente todo desde la marca 'IMPORTANTE' hacia abajo mediante CropBox.
   const DEBUG_CROP = false;
   if (budget.footerMarkerY !== undefined) {
-    // Revertido a un margen más conservador para evitar desbordar el alto de página
-    const EXTRA_BOTTOM_MARGIN = 65; 
+    // AJUSTE: El punto de corte debe estar por encima de 'IMPORTANTE' pero por debajo del TOTAL.
+    const EXTRA_MARGIN = 25; 
     const yImportantePdfLib = budget.footerMarkerY;
-    const yCut = yImportantePdfLib + EXTRA_BOTTOM_MARGIN;
     
-    // Establecemos el Crop Box: definimos el área visible (desde yCut hasta el tope)
+    // En PDF-Lib (eje Y desde abajo), sumamos para subir el corte por encima de la marca.
+    let yCut = yImportantePdfLib + EXTRA_MARGIN;
+    
+    // PROTECCIÓN: 'MAX_CUT_Y' es el límite máximo que permitimos subir el corte.
+    // Esto asegura que el bloque de IVA/TOTAL (que está arriba del pie) nunca se oculte.
+    const MAX_CUT_Y = 160; 
+    yCut = Math.min(yCut, MAX_CUT_Y);
+    
+    // Establecemos el Crop Box: define el área visible (desde yCut hasta el tope)
     const newHeight = LAYOUT.height - yCut;
     
-    // El CropBox define la región rectangular de la página que se va a mostrar/imprimir.
     // Solo aplicamos si el cálculo es válido (altura positiva)
     if (newHeight > 0) {
       firstPage.setCropBox(0, yCut, LAYOUT.width, newHeight);
     }
 
     if (DEBUG_CROP && newHeight > 0) {
-      // Línea guía en el punto de corte
+      // Línea guía visual para depuración
       firstPage.drawLine({
         start: { x: 0, y: yCut },
         end: { x: LAYOUT.width, y: yCut },
@@ -115,8 +121,7 @@ export async function generatePdf(
       });
     }
   } else {
-    // FALLO CONTROLADO: No se detectó la palabra, no se aplica recorte agresivo.
-    console.warn("Palabra 'IMPORTANTE' no detectada. No se aplicará el recorte dinámico del pie de página.");
+    console.warn("Palabra 'IMPORTANTE' no detectada. No se aplicará el recorte.");
   }
 
   const pdfBytes = await pdfDoc.save();
