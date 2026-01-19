@@ -91,23 +91,25 @@ export async function generatePdf(
   // Eliminamos visualmente todo desde la marca 'IMPORTANTE' hacia abajo mediante CropBox.
   const DEBUG_CROP = false;
   if (budget.footerMarkerY !== undefined) {
-    // Margen de seguridad para cortar justo antes del bloque 'IMPORTANTE'
-    const safetyMargin = 22; 
-    const yCut = budget.footerMarkerY + safetyMargin;
+    // Implementación dinámica: ajustamos el margen para dar más "aire" al total
+    // Un valor menor de EXTRA_BOTTOM_MARGIN (comparado con el anterior safetyMargin=22)
+    // hace que el corte sea más bajo, dejando más espacio visible debajo del total.
+    const EXTRA_BOTTOM_MARGIN = 10; 
+    const yImportantePdfLib = budget.footerMarkerY;
+    const yCut = yImportantePdfLib + EXTRA_BOTTOM_MARGIN;
     
     // Establecemos el Crop Box: definimos el área visible (desde yCut hasta el tope)
-    // El sistema de coordenadas de pdf-lib tiene el origen (0,0) en la esquina inferior izquierda.
     const newHeight = LAYOUT.height - yCut;
     
     // El CropBox define la región rectangular de la página que se va a mostrar/imprimir.
     firstPage.setCropBox(0, yCut, LAYOUT.width, newHeight);
 
     if (DEBUG_CROP) {
-      // Dibujamos una línea roja justo en el borde del recorte para debug (visible al estar justo dentro)
+      // Línea guía en el punto de corte
       firstPage.drawLine({
-        start: { x: 0, y: yCut + 2 },
-        end: { x: LAYOUT.width, y: yCut + 2 },
-        thickness: 2,
+        start: { x: 0, y: yCut },
+        end: { x: LAYOUT.width, y: yCut },
+        thickness: 1,
         color: rgb(1, 0, 0),
       });
     }
