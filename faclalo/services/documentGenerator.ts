@@ -13,7 +13,7 @@ const LAYOUT = {
 
 // LÍMITES ESTRICTOS (Guardrails)
 const LIMITS = {
-  LOGO_LEFT_X: 418,    // Límite derecho para no tocar el logo "QUILIS"
+  LOGO_LEFT_X: 560,    // Aumentado para permitir el alargamiento solicitado del blanco superior
   Y_NAME_LIMIT: 780    // Límite inferior para no cortar "Eduardo Quilis Llorens"
 };
 
@@ -21,14 +21,14 @@ const OVERLAY = {
   // 1. Zonas de Tapado (Rectángulos Blancos 100% Opacos)
   // Se dibujan ANTES que cualquier texto nuevo
   covers: [
-    // CABECERA: Tapado "alargado" ajustado justo bajo las letras de FACTURA
-    { name: "top_header_cleaner", x: 10, y: 792, w: 405, h: 50 }, 
+    // CABECERA: Tapado "alargado" hacia la derecha (~5cm extra de ancho para cubrir restos)
+    { name: "top_header_cleaner", x: 10, y: 792, w: 550, h: 50 }, 
     
     // CUERPO: Tapado zona Cliente/Fecha original
     { name: "info_wipe",  x: 40,  y: 615, w: 515, h: 50 },  
     
-    // PIE: Limpieza total de la zona inferior (otro "PRESUPUESTO" grande)
-    { name: "footer_wipe", x: 0,   y: 0,   w: 595, h: 80 }, 
+    // PIE: Limpieza inferior bajada (~3cm menos de altura para que no suba tanto)
+    { name: "footer_wipe", x: 0,   y: 0,   w: 595, h: 40 }, 
   ],
   
   // 2. Posiciones de Texto Final
@@ -75,12 +75,10 @@ export async function generatePdf(
 
       // APLICAR GUARDRAILS A LOS TAPADOS DEL HEADER
       if (area.name.startsWith("top")) {
-        // Guardrail X: No invadir el Logo
+        // Guardrail X: No invadir el margen extremo derecho si fuera necesario
         if (finalX + finalW > LIMITS.LOGO_LEFT_X) {
           finalW = Math.max(0, LIMITS.LOGO_LEFT_X - finalX);
         }
-        // Guardrail Y: No bajar hacia el nombre (opcional, el usuario pidió "justo bajo letras")
-        // No aplicamos recorte inferior aquí porque el usuario pidió explícitamente y:792
       }
 
       firstPage.drawRectangle({
