@@ -87,42 +87,22 @@ export async function generatePdf(
     color: rgb(0, 0, 0)
   });
 
-  // 4. SOLUCIÓN OBLIGATORIA (RECORTE / CROP):
-  // Eliminamos visualmente todo desde la marca 'IMPORTANTE' hacia abajo mediante CropBox.
-  const DEBUG_CROP = false;
-  if (budget.footerMarkerY !== undefined) {
-    // AJUSTE: El punto de corte debe estar por encima de 'IMPORTANTE' pero por debajo del TOTAL.
-    const EXTRA_MARGIN = 25; 
-    const yImportantePdfLib = budget.footerMarkerY;
-    
-    // En PDF-Lib (eje Y desde abajo), sumamos para subir el corte por encima de la marca.
-    let yCut = yImportantePdfLib + EXTRA_MARGIN;
-    
-    // PROTECCIÓN: 'MAX_CUT_Y' es el límite máximo que permitimos subir el corte.
-    // Esto asegura que el bloque de IVA/TOTAL (que está arriba del pie) nunca se oculte.
-    const MAX_CUT_Y = 160; 
-    yCut = Math.min(yCut, MAX_CUT_Y);
-    
-    // Establecemos el Crop Box: define el área visible (desde yCut hasta el tope)
-    const newHeight = LAYOUT.height - yCut;
-    
-    // Solo aplicamos si el cálculo es válido (altura positiva)
-    if (newHeight > 0) {
-      firstPage.setCropBox(0, yCut, LAYOUT.width, newHeight);
-    }
+  // 4. ELIMINACIÓN DEFINITIVA DEL PIE DE PÁGINA (BLOQUE IMPORTANTE)
+  // Se dibuja un rectángulo blanco opaco al final para asegurar el tapado del bloque inferior.
+  const FALLBACK_Y = 145; // Posición de respaldo si falla la detección
+  let yStart = budget.footerMarkerY !== undefined ? (budget.footerMarkerY + 40) : FALLBACK_Y;
+  
+  // Protección: no permitir que el tapado oculte el bloque de IVA/TOTAL
+  yStart = Math.min(yStart, 160);
 
-    if (DEBUG_CROP && newHeight > 0) {
-      // Línea guía visual para depuración
-      firstPage.drawLine({
-        start: { x: 0, y: yCut },
-        end: { x: LAYOUT.width, y: yCut },
-        thickness: 1,
-        color: rgb(1, 0, 0),
-      });
-    }
-  } else {
-    console.warn("Palabra 'IMPORTANTE' no detectada. No se aplicará el recorte.");
-  }
+  firstPage.drawRectangle({
+    x: 0,
+    y: 0,
+    width: LAYOUT.width,
+    height: yStart,
+    color: rgb(1, 1, 1),
+    opacity: 1
+  });
 
   const pdfBytes = await pdfDoc.save();
   const blob = new Blob([pdfBytes], { type: 'application/pdf' });
