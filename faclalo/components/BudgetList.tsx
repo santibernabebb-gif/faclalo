@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { FileText, Trash2, ArrowRight } from 'lucide-react';
+import { FileText, ChevronRight, FileCode } from 'lucide-react';
 import { BudgetData } from '../types';
 
 interface BudgetListProps {
@@ -12,49 +12,37 @@ interface BudgetListProps {
 export const BudgetList: React.FC<BudgetListProps> = ({ budgets, onSelect, onDelete }) => {
   if (budgets.length === 0) {
     return (
-      <div className="p-12 text-center text-slate-400">
-        <FileText className="w-12 h-12 mx-auto mb-4 opacity-20" />
-        <p>No hay presupuestos cargados todavía.</p>
+      <div className="p-8 text-center bg-slate-50 rounded-3xl border border-slate-100">
+        <FileCode className="w-12 h-12 mx-auto mb-3 opacity-20 text-blue-600" />
+        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">No recent budgets</p>
       </div>
     );
   }
 
   return (
-    <div className="divide-y divide-slate-100">
-      {budgets.map((budget) => (
-        <div key={budget.id} className="p-4 hover:bg-slate-50/80 transition-colors group flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
-              <FileText className="w-6 h-6 text-blue-500" />
-            </div>
-            <div>
-              <h4 className="font-medium text-slate-800 truncate max-w-[200px] md:max-w-md">
-                {budget.clientName === "NO DETECTADO" ? budget.fileName : budget.clientName}
-              </h4>
-              <div className="flex gap-3 text-xs text-slate-500 mt-1">
-                <span>{budget.date}</span>
-                <span className="text-slate-300">|</span>
-                <span className="font-semibold text-slate-700">{budget.total.toFixed(2)}€</span>
-              </div>
-            </div>
+    <div className="space-y-3">
+      {budgets.map((budget, idx) => (
+        <button 
+          key={budget.id} 
+          onClick={() => onSelect(budget)}
+          className="w-full p-4 bg-white hover:bg-blue-50/50 border border-slate-100 rounded-3xl transition-all flex items-center gap-4 group text-left shadow-sm hover:shadow-md"
+        >
+          <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center group-hover:bg-white transition-colors">
+            <FileText className="w-6 h-6 text-blue-600" />
           </div>
-          
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={() => onDelete(budget.id)}
-              className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-              title="Eliminar"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-            <button 
-              onClick={() => onSelect(budget)}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors"
-            >
-              Facturar <ArrowRight className="w-4 h-4" />
-            </button>
+          <div className="flex-1 overflow-hidden">
+            <p className="font-bold text-slate-800 truncate text-sm">{budget.clientName === "NO DETECTADO" ? budget.fileName : budget.clientName}</p>
+            <p className="text-[10px] text-slate-400 font-medium mt-0.5 uppercase tracking-tighter">
+              {budget.date} • {budget.total.toFixed(2)}€
+            </p>
           </div>
-        </div>
+          <div className="flex items-center gap-3">
+             <span className={`text-[8px] font-black px-2 py-1 rounded-lg uppercase ${idx % 2 === 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'}`}>
+               {idx % 2 === 0 ? 'Converted' : 'Draft'}
+             </span>
+             <ChevronRight className="w-4 h-4 text-slate-300 group-hover:translate-x-1 transition-transform" />
+          </div>
+        </button>
       ))}
     </div>
   );
