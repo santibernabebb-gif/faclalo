@@ -1,19 +1,24 @@
 
 import { BudgetData, InvoiceConfig, MONTHS_ABREV_ES } from '../types';
 
-// AJUSTES DE COORDENADAS (Configuración manual)
+// AJUSTES DE COORDENADAS - Modo Ajuste
 const DEBUG_GUIDES = false; 
 
-const OVERLAY = {
-  title: {
-    page: 0,
-    cover: { x: 300, y: 780, w: 220, h: 45 }, 
-    text: { x: 340, y: 792, size: 30, label: "FACTURA" }
-  },
-  fields: {
-    cliente: { page: 0, x: 100, y: 650, size: 11 },
-    fecha:   { page: 0, x: 100, y: 630, size: 11 },
-    numero:  { page: 0, x: 48, y: 550, size: 13, rotateDeg: 90 }
+// Configuración de Zonas de Intervención (Basado en el layout A4 estándar del presupuesto)
+const OVERLAY_CONFIG = {
+  // 1. Zonas de Tapado (Rectángulos Blancos Opacos)
+  covers: [
+    { name: "titulo_superior", x: 320, y: 780, w: 250, h: 50 },  // Tapa "PRESUPUESTO" cabecera
+    { name: "titulo_inferior", x: 30, y: 25, w: 250, h: 45 },    // Tapa "PRESUPUESTO" pie de página
+    { name: "bloque_cliente",  x: 45, y: 645, w: 350, h: 22 },   // Tapa "Cliente: [Nombre Anterior]"
+    { name: "bloque_fecha",    x: 45, y: 625, w: 250, h: 20 },   // Tapa "Fecha: [Fecha Anterior]"
+  ],
+  // 2. Posiciones de Texto Nuevo
+  texts: {
+    factura_titulo: { x: 355, y: 792, size: 32, label: "FACTURA" },
+    cliente_linea:  { x: 50, y: 649, size: 11 },
+    fecha_linea:    { x: 50, y: 629, size: 11 },
+    num_factura:    { x: 48, y: 550, size: 13, rotateDeg: 90 }
   }
 };
 
@@ -23,79 +28,92 @@ export async function generatePdf(
   invoiceCode: string,
   _unused?: ArrayBuffer
 ) {
-  // Acceso seguro a la librería desde window
   const PDFLib = (window as any).PDFLib;
   if (!PDFLib) {
-    alert("Error: PDF-Lib no está cargada en el navegador.");
+    alert("Error: PDF-Lib no está cargada.");
     return;
   }
   const { PDFDocument, rgb, StandardFonts, degrees } = PDFLib;
 
   if (!budget.originalBuffer || budget.originalBuffer.byteLength === 0) {
-    alert("El buffer del PDF está vacío o corrupto. Por favor, vuelve a subir el presupuesto.");
+    alert("El buffer del PDF original no está disponible.");
     return;
   }
 
   try {
-    // 1. Cargar el PDF original usando Uint8Array (más compatible) e ignorando encriptación de metadatos
     const pdfDoc = await PDFDocument.load(new Uint8Array(budget.originalBuffer), { 
       ignoreEncryption: true 
     });
     
     const pages = pdfDoc.getPages();
-    const firstPage = pages[0];
+    const firstPage = pages[0]; // Aplicamos cambios solo en la primera página
     const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-    // 2. Tapar "PRESUPUESTO"
-    const t = OVERLAY.title;
-    firstPage.drawRectangle({
-      x: t.cover.x,
-      y: t.cover.y,
-      width: t.cover.w,
-      height: t.cover.h,
-      color: rgb(1, 1, 1),
-      opacity: DEBUG_GUIDES ? 0.5 : 1
+    // --- PASO 1: DIBUJAR TODOS LOS TAPADOS (RECTÁNGULOS BLANCOS) ---
+    // Dibujamos primero todos los parches para que el texto nuevo quede siempre encima
+    OVERLAY_CONFIG.covers.forEach(area => {
+      firstPage.drawRectangle({
+        x: area.x,
+        y: area.y,
+        width: area.w,
+        height: area.h,
+        color: rgb(1, 1, 1), // Blanco 100% opaco
+        opacity: 1
+      });
+
+      // Si el modo debug está activo, dibujamos el borde de la zona
+      if (DEBUG_GUIDES) {
+        firstPage.drawRectangle({
+          x: area.x, y: area.y, width: area.w, height: area.h,
+          borderColor: rgb(1, 0, 0), borderWidth: 1
+        });
+      }
     });
-    
-    // Escribir "FACTURA"
-    firstPage.drawText(t.text.label, {
-      x: t.text.x,
-      y: t.text.y,
-      size: t.text.size,
+
+    // --- PASO 2: DIBUJAR TODOS LOS TEXTOS NUEVOS ---
+    const t = OVERLAY_CONFIG.texts;
+
+    // A. Título Principal
+    firstPage.drawText(t.factura_titulo.label, {
+      x: t.factura_titulo.x,
+      y: t.factura_titulo.y,
+      size: t.factura_titulo.size,
       font: fontBold,
-      color: rgb(0.27, 0.45, 0.72)
+      color: rgb(0.27, 0.45, 0.72) // Azul corporativo
     });
 
-    // 3. Escribir campos manuales
-    const f = OVERLAY.fields;
-    
-    // Cliente (con fallback por si está vacío)
-    firstPage.drawText((budget.clientName || "CLIENTE").toUpperCase(), {
-      x: f.cliente.x,
-      y: f.cliente.y,
-      size: f.cliente.size,
-      font: fontBold
+    // B. Línea de Cliente (Escribimos etiqueta + valor para unificar estilo)
+    const clienteTexto = `CLIENTE: ${(budget.clientName || "DATO NO DISPONIBLE").toUpperCase()}`;
+    firstPage.drawText(clienteTexto, {
+      x: t.cliente_linea.x,
+      y: t.cliente_linea.y,
+      size: t.cliente_linea.size,
+      font: fontBold,
+      color: rgb(0, 0, 0)
     });
 
-    // Fecha
+    // C. Línea de Fecha
     const dateFormatted = config.date.split('-').reverse().join('/');
-    firstPage.drawText(dateFormatted, {
-      x: f.fecha.x,
-      y: f.fecha.y,
-      size: f.fecha.size,
-      font: fontBold
-    });
-
-    // Número de Factura
-    firstPage.drawText(invoiceCode, {
-      x: f.numero.x,
-      y: f.numero.y,
-      size: f.numero.size,
+    const fechaTexto = `FECHA: ${dateFormatted}`;
+    firstPage.drawText(fechaTexto, {
+      x: t.fecha_linea.x,
+      y: t.fecha_linea.y,
+      size: t.fecha_linea.size,
       font: fontBold,
-      rotate: f.numero.rotateDeg ? degrees(f.numero.rotateDeg) : undefined
+      color: rgb(0, 0, 0)
     });
 
-    // 4. Generar y descargar
+    // D. Código de Factura (Número + Mes/Año)
+    firstPage.drawText(invoiceCode, {
+      x: t.num_factura.x,
+      y: t.num_factura.y,
+      size: t.num_factura.size,
+      font: fontBold,
+      rotate: t.num_factura.rotateDeg ? degrees(t.num_factura.rotateDeg) : undefined,
+      color: rgb(0, 0, 0)
+    });
+
+    // --- PASO 3: GUARDAR Y DESCARGAR ---
     const pdfBytes = await pdfDoc.save();
     const blob = new Blob([pdfBytes], { type: 'application/pdf' });
     const link = document.createElement('a');
@@ -110,8 +128,8 @@ export async function generatePdf(
     link.click();
 
   } catch (error) {
-    console.error("Error detallado al procesar PDF:", error);
-    alert(`No se pudo procesar el PDF. Error: ${error instanceof Error ? error.message : 'Desconocido'}`);
+    console.error("Error al aplicar overlays:", error);
+    alert(`Error al generar la factura: ${error instanceof Error ? error.message : 'Error desconocido'}`);
   }
 }
 
