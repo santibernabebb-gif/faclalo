@@ -1,7 +1,7 @@
 
 import { BudgetData, InvoiceConfig, MONTHS_ABREV_ES } from '../types';
 
-// MODO DEBUG: Dibuja bordes de colores para ajustar coordenadas sin desperdiciar papel
+// MODO DEBUG: Dibuja bordes de colores para ajustar coordenadas
 const DEBUG_GUIDES = false; 
 
 // Configuración de Layout A4 (Ancho estándar: 595 puntos, Alto: 842)
@@ -13,29 +13,25 @@ const LAYOUT = {
 
 // LÍMITES ESTRICTOS (Guardrails)
 const LIMITS = {
-  LOGO_LEFT_X: 595,    // Ajustado a 595 para permitir el tapado total solicitado del título original
-  Y_NAME_LIMIT: 780    // Límite inferior para no cortar "Eduardo Quilis Llorens"
+  LOGO_LEFT_X: 595,
+  Y_NAME_LIMIT: 780
 };
 
 const OVERLAY = {
   // 1. Zonas de Tapado (Rectángulos Blancos 100% Opacos)
-  // Se dibujan ANTES que cualquier texto nuevo
   covers: [
-    // CABECERA: Tapado total del ancho superior (x:0, w:595) para limpiar restos a la derecha de "FACTURA"
+    // CABECERA: Tapado total del ancho superior
     { name: "top_header_cleaner", x: 0, y: 790, w: 595, h: 52 }, 
     
     // CUERPO: Tapado zona Cliente/Fecha original
     { name: "info_wipe",  x: 40,  y: 615, w: 515, h: 50 },  
-    
-    // PIE: Limpieza inferior aumentada (h: 60) para tapar la palabra "PRESUPUESTO" del footer original
-    { name: "footer_wipe", x: 0,   y: 0,   w: 595, h: 60 }, 
   ],
   
   // 2. Posiciones de Texto Final
   texts: {
-    titulo: { y: 802, size: 38, label: "FACTURA" },              // Centrado y elevado para limpieza
-    sub_datos: { y: 635, size: 11 },                             // Cliente y Fecha unificados
-    num_lateral: { x: 48, y: 550, size: 13, rotateDeg: 90 }      // Código factura lateral
+    titulo: { y: 802, size: 38, label: "FACTURA" },
+    sub_datos: { y: 635, size: 11 },
+    num_lateral: { x: 48, y: 550, size: 13, rotateDeg: 90 }
   }
 };
 
@@ -65,15 +61,15 @@ export async function generatePdf(
     const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
     // --- PASO 1: APLICAR TODAS LAS CAPAS DE TAPADO (RECTÁNGULOS BLANCOS) ---
+    
+    // Tapados fijos (Header e Info Cliente)
     OVERLAY.covers.forEach(area => {
       let finalX = area.x;
       let finalY = area.y;
       let finalW = area.w;
       let finalH = area.h;
 
-      // APLICAR GUARDRAILS A LOS TAPADOS DEL HEADER
       if (area.name.startsWith("top")) {
-        // Guardrail X: No invadir el margen extremo derecho más de lo necesario
         if (finalX + finalW > LIMITS.LOGO_LEFT_X) {
           finalW = Math.max(0, LIMITS.LOGO_LEFT_X - finalX);
         }
@@ -87,14 +83,40 @@ export async function generatePdf(
         color: rgb(1, 1, 1),
         opacity: 1
       });
+    });
+
+    // TAPADO DINÁMICO: Borrado desde "IMPORTANTE" hasta el final de la página
+    // Si se detectó la marca, borramos desde ese punto (más un margen de seguridad) hasta el final (y=0)
+    if (budget.footerMarkerY !== undefined) {
+      const safetyMargin = 15; // Para asegurar que tapamos la propia palabra "IMPORTANTE"
+      const coverHeight = budget.footerMarkerY + safetyMargin;
+      
+      firstPage.drawRectangle({
+        x: 0,
+        y: 0,
+        width: 595,
+        height: coverHeight,
+        color: rgb(1, 1, 1),
+        opacity: 1
+      });
 
       if (DEBUG_GUIDES) {
         firstPage.drawRectangle({
-          x: finalX, y: finalY, width: finalW, height: finalH,
-          borderColor: rgb(1, 0, 0), borderWidth: 0.5
+          x: 0, y: 0, width: 595, height: coverHeight,
+          borderColor: rgb(0, 1, 0), borderWidth: 2
         });
       }
-    });
+    } else {
+      // Si no se encuentra "IMPORTANTE", aplicamos un tapado de pie de página mínimo por defecto
+      firstPage.drawRectangle({
+        x: 0,
+        y: 0,
+        width: 595,
+        height: 60,
+        color: rgb(1, 1, 1),
+        opacity: 1
+      });
+    }
 
     // --- PASO 2: ESCRIBIR TEXTOS NUEVOS ENCIMA DE LOS TAPADOS ---
     
@@ -144,16 +166,7 @@ export async function generatePdf(
     const blob = new Blob([pdfBytes], { type: 'application/pdf' });
     const blobUrl = URL.createObjectURL(blob);
     
-    const dateObj = new Date(config.date);
-    const monthStr = MONTHS_ABREV_ES[dateObj.getMonth()];
-    const yearStr = dateObj.getFullYear().toString().slice(-2);
-    const fileName = `FACTURA_${config.number}_${monthStr}-${yearStr}.pdf`;
-    
-    const link = document.createElement('a');
-    link.href = blobUrl;
-    link.download = fileName;
-    link.click();
-
+    // El navegador manejará la descarga. devolvemos el blobUrl para la Web Share API.
     return blobUrl;
 
   } catch (error) {

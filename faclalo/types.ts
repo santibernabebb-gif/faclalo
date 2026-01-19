@@ -21,6 +21,7 @@ export interface BudgetData {
     iva: number;
     total: number;
   };
+  footerMarkerY?: number; // Coordenada Y de la palabra 'IMPORTANTE'
 }
 
 export interface InvoiceConfig {

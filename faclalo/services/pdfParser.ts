@@ -26,7 +26,6 @@ export async function parseBudgetPdf(file: File): Promise<BudgetData> {
   const arrayBuffer = await file.arrayBuffer();
   
   // CLONAMOS el buffer para PDF.js para que no neutralice el original
-  // Esto es CRÍTICO para que originalBuffer siga teniendo datos después
   const bufferForPdfJs = arrayBuffer.slice(0);
   
   // @ts-ignore
@@ -57,6 +56,20 @@ export async function parseBudgetPdf(file: File): Promise<BudgetData> {
     }
   }
 
+  // Búsqueda dinámica de la marca "IMPORTANTE"
+  // Buscamos la coordenada Y de la primera vez que aparece (de arriba a abajo, Y mayor es arriba)
+  // Pero como queremos borrar todo DESDE ahí hacia abajo, buscamos el bloque de texto que la contiene.
+  let footerMarkerY: number | undefined = undefined;
+  
+  for (const item of allItems) {
+    if (item.str.toUpperCase().includes("IMPORTANTE")) {
+      // Si ya encontramos uno, nos quedamos con el más alto (por si hay varios, para borrar el primero que aparezca)
+      if (footerMarkerY === undefined || item.y > footerMarkerY) {
+        footerMarkerY = item.y;
+      }
+    }
+  }
+
   return {
     id: Math.random().toString(36).substr(2, 9),
     fileName: file.name,
@@ -66,6 +79,7 @@ export async function parseBudgetPdf(file: File): Promise<BudgetData> {
     subtotal: 0,
     iva: 0,
     total: 0,
-    originalBuffer: arrayBuffer // El buffer original ahora llega íntegro
+    originalBuffer: arrayBuffer,
+    footerMarkerY
   };
 }
