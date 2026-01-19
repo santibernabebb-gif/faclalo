@@ -14,7 +14,7 @@ export const BudgetList: React.FC<BudgetListProps> = ({ budgets, onSelect, onDel
     return (
       <div className="p-8 text-center bg-slate-50 rounded-3xl border border-slate-100">
         <FileCode className="w-12 h-12 mx-auto mb-3 opacity-20 text-blue-600" />
-        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">No recent budgets</p>
+        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">No hay presupuestos recientes</p>
       </div>
     );
   }
@@ -38,7 +38,7 @@ export const BudgetList: React.FC<BudgetListProps> = ({ budgets, onSelect, onDel
           </div>
           <div className="flex items-center gap-3">
              <span className={`text-[8px] font-black px-2 py-1 rounded-lg uppercase ${idx % 2 === 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'}`}>
-               {idx % 2 === 0 ? 'Converted' : 'Draft'}
+               {idx % 2 === 0 ? 'Convertido' : 'Borrador'}
              </span>
              <ChevronRight className="w-4 h-4 text-slate-300 group-hover:translate-x-1 transition-transform" />
           </div>

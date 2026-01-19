@@ -72,7 +72,7 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({ budget, onBack }) 
             />
           </div>
           <div className="p-4 bg-slate-900 text-white rounded-lg">
-            <span className="text-xs text-slate-400 block mb-1">CÓDIGO GENERADO:</span>
+            <span className="text-xs text-slate-400 block mb-1 uppercase tracking-widest">CÓDIGO GENERADO:</span>
             <span className="text-xl font-mono font-bold tracking-wider">{getInvoiceCode()}</span>
           </div>
         </div>
@@ -83,7 +83,7 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({ budget, onBack }) 
             <button 
               onClick={handleDownloadDocx}
               disabled={isGeneratingDocx || isGeneratingPdf}
-              className="flex items-center justify-center gap-2 w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors disabled:opacity-50"
+              className="flex items-center justify-center gap-2 w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors disabled:opacity-50 uppercase tracking-tighter"
             >
               {isGeneratingDocx ? <Loader2 className="animate-spin" /> : <FileCode />}
               Generar DOCX (Plantilla)
@@ -91,7 +91,7 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({ budget, onBack }) 
             <button 
               onClick={handleDownloadPdf}
               disabled={isGeneratingDocx || isGeneratingPdf}
-              className="flex items-center justify-center gap-2 w-full py-3 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-900 transition-colors disabled:opacity-50"
+              className="flex items-center justify-center gap-2 w-full py-3 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-900 transition-colors disabled:opacity-50 uppercase tracking-tighter"
             >
               {isGeneratingPdf ? <Loader2 className="animate-spin" /> : <Printer />}
               Generar PDF Final
@@ -112,11 +112,11 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({ budget, onBack }) 
         <div className="p-6">
           <div className="flex justify-between mb-6">
             <div>
-              <p className="text-xs text-slate-400 uppercase">Cliente</p>
+              <p className="text-xs text-slate-400 uppercase tracking-widest">Cliente</p>
               <p className="text-lg font-bold text-slate-800">{budget.clientName}</p>
             </div>
             <div className="text-right">
-              <p className="text-xs text-slate-400 uppercase">Fecha Presupuesto</p>
+              <p className="text-xs text-slate-400 uppercase tracking-widest">Fecha Presupuesto</p>
               <p className="text-lg font-bold text-slate-800">{budget.date}</p>
             </div>
           </div>
@@ -125,9 +125,9 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({ budget, onBack }) 
             <thead>
               <tr className="border-b border-slate-200 text-left text-xs font-bold text-slate-400">
                 <th className="pb-2">DESCRIPCIÓN</th>
-                <th className="pb-2 text-center">UDS</th>
-                <th className="pb-2 text-right">PRECIO UNIT.</th>
-                <th className="pb-2 text-right">TOTAL</th>
+                <th className="pb-2 text-center uppercase">UDS</th>
+                <th className="pb-2 text-right uppercase">PRECIO UNIT.</th>
+                <th className="pb-2 text-right uppercase">TOTAL</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -148,11 +148,11 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({ budget, onBack }) 
                 <span>Subtotal:</span>
                 <span>{budget.subtotal.toFixed(2)}€</span>
               </div>
-              <div className="flex justify-between text-slate-500">
+              <div className="flex justify-between text-slate-500 uppercase">
                 <span>IVA 21%:</span>
                 <span>{budget.iva.toFixed(2)}€</span>
               </div>
-              <div className="flex justify-between text-xl font-bold text-slate-900 border-t pt-2">
+              <div className="flex justify-between text-xl font-bold text-slate-900 border-t pt-2 uppercase">
                 <span>TOTAL:</span>
                 <span>{budget.total.toFixed(2)}€</span>
               </div>
