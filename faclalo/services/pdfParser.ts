@@ -5,28 +5,31 @@ interface PDFTextItem {
   str: string;
   x: number;
   y: number;
+  width: number;
 }
 
 /**
- * Normaliza números en formato español (3.825,00€ o 3825.00) a Number (3825.00)
+ * Normaliza números en formato español (3.825,00€, 3825€, 3825.00) a Number (3825.00)
  */
 function cleanNumber(str: string): number | null {
   if (!str) return null;
-  // Eliminar símbolo de euro y espacios
-  let clean = str.replace(/[€\s]/g, '');
+  // Eliminar símbolo de euro, unidades de medida pegadas y espacios
+  let clean = str.replace(/[€\s]/g, '').trim();
   
+  if (!clean) return null;
+
   // Caso 1: 3.825,00 (punto miles, coma decimal)
   if (clean.includes(',') && clean.includes('.')) {
     clean = clean.replace(/\./g, '').replace(',', '.');
   } 
-  // Caso 2: 3825,00 (coma decimal)
+  // Caso 2: 3825,00 (solo coma decimal)
   else if (clean.includes(',')) {
     clean = clean.replace(',', '.');
   } 
   // Caso 3: 3.825 (podría ser miles o decimal)
   else if (clean.includes('.')) {
     const parts = clean.split('.');
-    // Si tiene exactamente 3 dígitos tras el punto, asumimos miles (3.825 -> 3825)
+    // Heurística: Si hay exactamente 3 dígitos tras el punto, asumimos miles (3.825 -> 3825)
     if (parts.length === 2 && parts[1].length === 3) {
       clean = clean.replace(/\./g, '');
     }
@@ -47,15 +50,16 @@ export async function parseBudgetPdf(file: File): Promise<BudgetData> {
   const allItems: PDFTextItem[] = textContent.items.map((item: any) => ({
     str: item.str,
     x: item.transform[4],
-    y: item.transform[5]
+    y: item.transform[5],
+    width: item.width
   }));
 
-  // 1. Reconstruir líneas por coordenada Y (tolerancia de 2.5px para saltos pequeños)
+  // 1. AGRUPAR POR LÍNEAS (Eje Y con tolerancia)
   const linesMap: { [key: number]: PDFTextItem[] } = {};
-  const tolerance = 2.5;
+  const yTolerance = 3.0;
 
   allItems.forEach(item => {
-    const foundY = Object.keys(linesMap).find(y => Math.abs(Number(y) - item.y) < tolerance);
+    const foundY = Object.keys(linesMap).find(y => Math.abs(Number(y) - item.y) < yTolerance);
     if (foundY) {
       linesMap[Number(foundY)].push(item);
     } else {
@@ -63,142 +67,173 @@ export async function parseBudgetPdf(file: File): Promise<BudgetData> {
     }
   });
 
-  // Ordenar líneas de arriba a abajo (Y desc) y elementos de izquierda a derecha (X asc)
   const sortedY = Object.keys(linesMap).map(Number).sort((a, b) => b - a);
-  const textLines = sortedY.map(y => {
-    return linesMap[y]
-      .sort((a, b) => a.x - b.x)
-      .map(item => item.str)
-      .join(' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-  });
+  const rows = sortedY.map(y => linesMap[y].sort((a, b) => a.x - b.x));
+  const textLines = rows.map(items => items.map(i => i.str).join(' ').replace(/\s+/g, ' ').trim());
 
-  // 2. Extracción de Totales mediante Regex (Robustos al orden y espacios)
-  let detectedSubtotal: number | null = null;
-  let detectedIva: number | null = null;
-  let detectedTotalFinal: number | null = null;
+  // 2. EXTRACCIÓN DE TOTALES (Regex Robusto)
+  let subtotal: number | null = null;
+  let iva: number | null = null;
+  let totalFinal: number | null = null;
   const warnings: string[] = [];
 
   textLines.forEach(line => {
-    const upperLine = line.toUpperCase();
-    
-    // Subtotal: Busca específicamente "TOTAL €"
-    if (upperLine.includes('TOTAL €')) {
-      const match = line.match(/TOTAL\s*€\s*([\d.,]+\s*€?)/i);
-      if (match) detectedSubtotal = cleanNumber(match[1]);
+    const upper = line.toUpperCase();
+    // Subtotal: "TOTAL € 3825"
+    if (upper.includes('TOTAL €')) {
+      const match = line.match(/TOTAL\s*€\s*([\d.,]+)/i);
+      if (match) subtotal = cleanNumber(match[1]);
     }
-    
-    // IVA: Busca "IVA 21%"
-    if (upperLine.includes('IVA 21%')) {
-      const match = line.match(/IVA\s*21%\s*([\d.,]+\s*€?)/i);
-      if (match) detectedIva = cleanNumber(match[1]);
+    // IVA: "IVA 21% 803.25"
+    if (upper.includes('IVA 21%')) {
+      const match = line.match(/IVA\s*21%\s*([\d.,]+)/i);
+      if (match) iva = cleanNumber(match[1]);
     }
   });
 
-  // El Total Final suele ser el último "TOTAL" que aparece (pero no el que dice "TOTAL €")
+  // El Total Final suele ser el ÚLTIMO "TOTAL" (que no sea el de "TOTAL €")
   for (let i = textLines.length - 1; i >= 0; i--) {
     const line = textLines[i];
-    const upperLine = line.toUpperCase();
-    if (upperLine.startsWith('TOTAL') && !upperLine.includes('TOTAL €')) {
-      const match = line.match(/TOTAL\s*([\d.,]+\s*€?)/i);
+    const upper = line.toUpperCase();
+    if (upper.startsWith('TOTAL') && !upper.includes('TOTAL €')) {
+      const match = line.match(/TOTAL\s*([\d.,]+)/i);
       if (match) {
-        detectedTotalFinal = cleanNumber(match[1]);
+        totalFinal = cleanNumber(match[1]);
         break;
       }
     }
   }
 
-  // 3. Extracción de Líneas Facturables mediante patrón de importes
-  const tableLines: InvoiceLine[] = [];
-  const amountWithSymbolRegex = /[\d.,]+\s*€/g; // Patrón con € explícito
-  const anyAmountRegex = /[\d.,]+/g; // Patrón genérico de números
+  // 3. EXTRACCIÓN DE LÍNEAS (Doble Método)
+  const extractedLines: InvoiceLine[] = [];
+  
+  // METODO 1: Detección por Cabeceras
+  let headerX: { desc?: number, units?: number, pu?: number, price?: number } = {};
+  let headerRowIndex = -1;
 
-  textLines.forEach(line => {
-    const upperLine = line.toUpperCase();
-    
-    // Filtrar ruido obvio
-    if (upperLine.includes('TOTAL') || 
-        upperLine.includes('IVA 21%') || 
-        upperLine.includes('DESCRIPCIÓN') ||
-        upperLine.includes('IMPORTANTE') ||
-        upperLine.includes('CLIENTE') ||
-        line.length < 5) return;
-
-    // Buscamos líneas que contengan al menos 2 importes (Precio Unitario y Precio Total)
-    // El PDF de ejemplo tiene importes con €
-    const matches = line.match(amountWithSymbolRegex);
-    
-    if (matches && matches.length >= 2) {
-      const priceStr = matches[matches.length - 1]; // Último es el total de línea
-      const unitPriceStr = matches[matches.length - 2]; // Penúltimo es unitario
-      
-      const totalPrice = cleanNumber(priceStr);
-      const unitPrice = cleanNumber(unitPriceStr);
-      
-      if (totalPrice !== null && unitPrice !== null) {
-        // Obtenemos el texto antes de los importes para buscar las unidades
-        const beforeAmounts = line.split(unitPriceStr)[0].trim();
-        const parts = beforeAmounts.split(' ');
-        
-        let units = 1;
-        let description = beforeAmounts;
-
-        // Intentamos detectar las unidades (el último número antes del precio unitario)
-        if (parts.length > 0) {
-          const lastPart = parts[parts.length - 1];
-          const possibleUnits = parseFloat(lastPart.replace(',', '.'));
-          if (!isNaN(possibleUnits) && possibleUnits > 0) {
-            units = possibleUnits;
-            description = parts.slice(0, -1).join(' ').trim();
-          }
-        }
-
-        tableLines.push({
-          description: description.replace(/^[-•]\s*/, '').trim(),
-          units,
-          priceUnit: unitPrice,
-          total: totalPrice
-        });
-      }
+  rows.forEach((rowItems, idx) => {
+    const rowText = rowItems.map(i => i.str.toUpperCase()).join(' ');
+    if (rowText.includes('DESCRIPCIÓN') || rowText.includes('DESCRIPCION')) {
+      headerRowIndex = idx;
+      rowItems.forEach(item => {
+        const s = item.str.toUpperCase();
+        if (s.includes('DESCRIP')) headerX.desc = item.x;
+        if (s.includes('UNIDADES') || s.includes('UDS')) headerX.units = item.x;
+        if (s.includes('UNITARIO')) headerX.pu = item.x;
+        if (s.includes('PRECIO') && !s.includes('UNITARIO')) headerX.price = item.x;
+      });
     }
   });
 
-  // 4. Validación cruzada y correcciones finales
-  if (tableLines.length === 0) warnings.push("No se detectaron líneas detalladas.");
+  // Si encontramos cabeceras, usamos zonas X
+  if (headerX.desc !== undefined && headerX.price !== undefined) {
+    const colUnits = headerX.units || (headerX.desc + (headerX.pu || headerX.price) - headerX.desc) / 1.5;
+    const colPU = headerX.pu || (colUnits + headerX.price) / 2;
+    
+    // Procesar filas debajo del header y antes de los totales
+    for (let i = headerRowIndex + 1; i < rows.length; i++) {
+      const rowItems = rows[i];
+      const lineText = rowItems.map(it => it.str).join(' ');
+      if (lineText.toUpperCase().includes('TOTAL') || lineText.toUpperCase().includes('IMPORTANTE')) break;
 
-  const calculatedSubtotal = tableLines.reduce((acc, l) => acc + l.total, 0);
+      let descParts: string[] = [];
+      let unitsVal: number | null = null;
+      let puVal: number | null = null;
+      let priceVal: number | null = null;
 
-  // Si no se detectó el literal "TOTAL €", usamos la suma de líneas
-  if (detectedSubtotal === null) {
-    detectedSubtotal = calculatedSubtotal;
-  } else if (Math.abs(detectedSubtotal - calculatedSubtotal) > 0.1) {
-    warnings.push("La suma de las líneas no coincide con el subtotal detectado.");
+      rowItems.forEach(item => {
+        const val = cleanNumber(item.str);
+        if (item.x < (colUnits - 10)) {
+          descParts.push(item.str);
+        } else if (item.x < (colPU - 10)) {
+          if (val !== null) unitsVal = val;
+        } else if (item.x < (headerX.price! - 10)) {
+          if (val !== null) puVal = val;
+        } else {
+          if (val !== null) priceVal = val;
+        }
+      });
+
+      if (priceVal !== null) {
+        extractedLines.push({
+          description: descParts.join(' ').trim(),
+          units: unitsVal ?? 1,
+          priceUnit: puVal ?? priceVal,
+          total: priceVal
+        });
+      }
+    }
   }
 
-  // Si falta IVA, lo calculamos
-  if (detectedIva === null && detectedSubtotal !== null) {
-    detectedIva = Math.round(detectedSubtotal * 21) / 100;
+  // METODO 2: Fallback por Patrón de Texto (Si el Método 1 falló o no dio resultados)
+  if (extractedLines.length === 0) {
+    const amountWithEuro = /([\d.,]+\s*€)/g;
+    const anyNumber = /([\d.,]+)/g;
+
+    textLines.forEach(line => {
+      const upper = line.toUpperCase();
+      if (upper.includes('TOTAL') || upper.includes('IVA') || upper.includes('DESCRIP') || line.length < 10) return;
+
+      const matches = line.match(amountWithEuro) || line.match(anyNumber);
+      if (matches && matches.length >= 2) {
+        // En un presupuesto estándar: [Unidades?] ... [Precio Unitario] [Precio Total]
+        const pTotal = cleanNumber(matches[matches.length - 1]);
+        const pUnit = cleanNumber(matches[matches.length - 2]);
+        
+        if (pTotal !== null && pUnit !== null) {
+          const parts = line.split(matches[matches.length - 2]);
+          const descriptionRaw = parts[0].trim();
+          
+          // Intentar sacar unidades del final de la descripción
+          const descWords = descriptionRaw.split(' ');
+          let units = 1;
+          let description = descriptionRaw;
+          
+          if (descWords.length > 1) {
+            const lastWord = descWords[descWords.length - 1];
+            const u = parseFloat(lastWord.replace(',', '.'));
+            if (!isNaN(u) && u > 0 && u < 1000) {
+              units = u;
+              description = descWords.slice(0, -1).join(' ');
+            }
+          }
+
+          extractedLines.push({
+            description: description.replace(/^[-•]\s*/, '').trim(),
+            units,
+            priceUnit: pUnit,
+            total: pTotal
+          });
+        }
+      }
+    });
   }
 
-  // Si falta Total Final, calculamos
-  if (detectedTotalFinal === null && detectedSubtotal !== null && detectedIva !== null) {
-    detectedTotalFinal = detectedSubtotal + detectedIva;
+  // 4. VALIDACIÓN CRUZADA
+  const sumLines = extractedLines.reduce((acc, l) => acc + l.total, 0);
+  
+  if (subtotal === null) {
+    subtotal = sumLines;
+  } else if (Math.abs(subtotal - sumLines) > 0.1) {
+    warnings.push("Aviso: El subtotal del PDF no coincide con la suma de las líneas.");
   }
+
+  if (iva === null) iva = Math.round(subtotal * 21) / 100;
+  if (totalFinal === null) totalFinal = subtotal + iva;
 
   return {
     id: Math.random().toString(36).substr(2, 9),
     fileName: file.name,
-    clientName: "Detectado en Formulario", // Los datos de cliente se introducen manualmente en App.tsx
+    clientName: "Detectado en Formulario", 
     date: new Date().toLocaleDateString('es-ES'),
-    lines: tableLines,
-    subtotal: detectedSubtotal || 0,
-    iva: detectedIva || 0,
-    total: detectedTotalFinal || 0,
+    lines: extractedLines,
+    subtotal: subtotal || 0,
+    iva: iva || 0,
+    total: totalFinal || 0,
     detectedTotals: {
-      subtotal: detectedSubtotal || 0,
-      iva: detectedIva || 0,
-      total: detectedTotalFinal || 0
+      subtotal: subtotal || 0,
+      iva: iva || 0,
+      total: totalFinal || 0
     }
   };
 }
