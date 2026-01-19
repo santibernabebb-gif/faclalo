@@ -87,37 +87,33 @@ export async function generatePdf(
     color: rgb(0, 0, 0)
   });
 
-  // 4. IMPLEMENTACIÓN OBLIGATORIA (AL FINAL): Borrado dinámico del pie de página
-  // Solo se ejecuta si se detectó la palabra clave "IMPORTANTE"
-  const DEBUG_IMPORTANTE = false;
+  // 4. SOLUCIÓN OBLIGATORIA (RECORTE / CROP):
+  // Eliminamos visualmente todo desde la marca 'IMPORTANTE' hacia abajo mediante CropBox.
+  const DEBUG_CROP = false;
   if (budget.footerMarkerY !== undefined) {
-    // Margen de seguridad para cubrir el inicio de la palabra y bullets (12-20 pts)
-    const safetyMargin = 18; 
-    const y_pdfLib = budget.footerMarkerY;
-    const coverHeight = y_pdfLib + safetyMargin;
+    // Margen de seguridad para cortar justo antes del bloque 'IMPORTANTE'
+    const safetyMargin = 22; 
+    const yCut = budget.footerMarkerY + safetyMargin;
+    
+    // Establecemos el Crop Box: definimos el área visible (desde yCut hasta el tope)
+    // El sistema de coordenadas de pdf-lib tiene el origen (0,0) en la esquina inferior izquierda.
+    const newHeight = LAYOUT.height - yCut;
+    
+    // El CropBox define la región rectangular de la página que se va a mostrar/imprimir.
+    firstPage.setCropBox(0, yCut, LAYOUT.width, newHeight);
 
-    // Dibuja UN SOLO rectángulo blanco opaco que tape desde el borde inferior (Y=0) hasta el marcador
-    firstPage.drawRectangle({
-      x: 0,
-      y: 0,
-      width: LAYOUT.width,
-      height: coverHeight,
-      color: rgb(1, 1, 1),
-      opacity: 1
-    });
-
-    if (DEBUG_IMPORTANTE) {
+    if (DEBUG_CROP) {
+      // Dibujamos una línea roja justo en el borde del recorte para debug (visible al estar justo dentro)
       firstPage.drawLine({
-        start: { x: 0, y: y_pdfLib },
-        end: { x: LAYOUT.width, y: y_pdfLib },
-        thickness: 1,
+        start: { x: 0, y: yCut + 2 },
+        end: { x: LAYOUT.width, y: yCut + 2 },
+        thickness: 2,
         color: rgb(1, 0, 0),
       });
     }
   } else {
-    // Si no se detecta la palabra, no se aplica el borrado dinámico agresivo 
-    // para evitar tapar contenido útil por error.
-    console.warn("Palabra 'IMPORTANTE' no detectada. Se omite el borrado dinámico del pie.");
+    // FALLO CONTROLADO: No se detectó la palabra, no se aplica recorte agresivo.
+    console.warn("Palabra 'IMPORTANTE' no detectada. No se aplicará el recorte dinámico del pie de página.");
   }
 
   const pdfBytes = await pdfDoc.save();
