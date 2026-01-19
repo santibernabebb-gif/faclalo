@@ -1,4 +1,3 @@
-
 import { BudgetData, InvoiceConfig, MONTHS_ABREV_ES } from '../types';
 
 const LAYOUT = {
@@ -87,22 +86,37 @@ export async function generatePdf(
     color: rgb(0, 0, 0)
   });
 
-  // 4. ELIMINACIÓN DEFINITIVA DEL PIE DE PÁGINA (BLOQUE IMPORTANTE)
-  // Se dibuja un rectángulo blanco opaco al final para asegurar el tapado del bloque inferior.
-  const FALLBACK_Y = 145; // Posición de respaldo si falla la detección
-  let yStart = budget.footerMarkerY !== undefined ? (budget.footerMarkerY + 40) : FALLBACK_Y;
-  
-  // Protección: no permitir que el tapado oculte el bloque de IVA/TOTAL
-  yStart = Math.min(yStart, 160);
+  // 4. SOLUCIÓN OBLIGATORIA (RECORTE / CROP):
+  // Eliminamos visualmente todo desde la marca 'IMPORTANTE' hacia abajo mediante CropBox.
+  const DEBUG_CROP = false;
+  if (budget.footerMarkerY !== undefined) {
+    // Revertido a un margen más conservador para evitar desbordar el alto de página
+    const EXTRA_BOTTOM_MARGIN = 65; 
+    const yImportantePdfLib = budget.footerMarkerY;
+    const yCut = yImportantePdfLib + EXTRA_BOTTOM_MARGIN;
+    
+    // Establecemos el Crop Box: definimos el área visible (desde yCut hasta el tope)
+    const newHeight = LAYOUT.height - yCut;
+    
+    // El CropBox define la región rectangular de la página que se va a mostrar/imprimir.
+    // Solo aplicamos si el cálculo es válido (altura positiva)
+    if (newHeight > 0) {
+      firstPage.setCropBox(0, yCut, LAYOUT.width, newHeight);
+    }
 
-  firstPage.drawRectangle({
-    x: 0,
-    y: 0,
-    width: LAYOUT.width,
-    height: yStart,
-    color: rgb(1, 1, 1),
-    opacity: 1
-  });
+    if (DEBUG_CROP && newHeight > 0) {
+      // Línea guía en el punto de corte
+      firstPage.drawLine({
+        start: { x: 0, y: yCut },
+        end: { x: LAYOUT.width, y: yCut },
+        thickness: 1,
+        color: rgb(1, 0, 0),
+      });
+    }
+  } else {
+    // FALLO CONTROLADO: No se detectó la palabra, no se aplica recorte agresivo.
+    console.warn("Palabra 'IMPORTANTE' no detectada. No se aplicará el recorte dinámico del pie de página.");
+  }
 
   const pdfBytes = await pdfDoc.save();
   const blob = new Blob([pdfBytes], { type: 'application/pdf' });
